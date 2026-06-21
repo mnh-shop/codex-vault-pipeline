@@ -1,0 +1,64 @@
+# Codex Vault control vocabulary: integration_targets
+#
+# Per the multi-axis taxonomy correction 2026-06-21.
+# Concrete APIs, databases, tools, protocols, services, or
+# platforms the repo connects to. More concrete than
+# `ecosystems` (which names runtimes) and more concrete than
+# `capabilities` (which names abilities).
+schema: "control-vocabulary/v1"
+schema_version: "1.0.0"
+vocab_name: "integration_targets"
+vocab_version: "1.0.0"
+description: |
+  Concrete APIs, databases, tools, protocols, services, or
+  platforms the repo connects to. More concrete than
+  `ecosystems` (runtimes) and `capabilities` (abilities).
+allowed:
+  # ----- Code / source control -----
+  - "github"
+  # ----- Search -----
+  - "google-search"
+  - "serpapi"
+  - "brave-search"
+  - "tavily"
+  - "firecrawl"
+  # ----- Browser automation -----
+  - "playwright"
+  - "selenium"
+  # ----- Messaging -----
+  - "telegram"
+  - "discord"
+  - "slack"
+  - "gmail"
+  # ----- Threat intel / OSINT -----
+  - "shodan"
+  - "censys"
+  - "virustotal"
+  # ----- Vector / graph databases -----
+  - "milvus"
+  - "postgres"
+  - "neo4j"
+notes: |
+  - "github": GitHub REST/GraphQL API.
+  - "google-search": Google Custom Search JSON API.
+  - "serpapi": SerpApi (multi-engine SERP wrapper).
+  - "brave-search": Brave Search API.
+  - "tavily": Tavily search API (research-focused).
+  - "firecrawl": Firecrawl scrape-and-extract API.
+  - "playwright": Playwright browser-automation library.
+  - "selenium": Selenium WebDriver.
+  - "telegram": Telegram Bot API.
+  - "discord": Discord bot / webhooks.
+  - "slack": Slack API.
+  - "gmail": Gmail API.
+  - "shodan": Shodan host-intel API.
+  - "censys": Censys host-intel API.
+  - "virustotal": VirusTotal file/URL intel API.
+  - "milvus": Milvus vector database.
+  - "postgres": PostgreSQL.
+  - "neo4j": Neo4j graph database.
+
+  Distinction from `ecosystems`:
+  - `ecosystems` is the runtime (e.g. `mcp`, `hermes-agent`).
+  - `integration_targets` is the specific external service
+    (e.g. `github`, `telegram`).

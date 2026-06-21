@@ -90,7 +90,7 @@ properties:
     type: "string"
   archived:
     type: "boolean"
-  # ----- TAXONOMY CORRECTION 2026-06-20 -----
+  # ----- TAXONOMY CORRECTION 2026-06-20 + 2026-06-21 -----
   # primary_domain: intrinsic identity (what the repo fundamentally IS).
   # related_domains: ecosystems it is useful in (drives Obsidian ecosystem coloring).
   # artifact_role: what it provides (drives Obsidian core coloring when source_role=core).
@@ -105,6 +105,114 @@ properties:
       enum: ["hermes-agent", "n8n", "agentfield", "coding-agents", "training-systems",
              "ai-content-generation", "memory-systems", "cross-domain",
              "general-development"]
+  # ----- MULTI-AXIS TAXONOMY 2026-06-21 -----
+  # A repo can be classified along multiple axes simultaneously
+  # without corrupting primary_domain. Each new field below is
+  # controlled by a dedicated vocab file (or is free-form for
+  # `topics`). All are optional; records that pre-date this
+  # schema bump do not need to be re-annotated.
+  #
+  # Decision rule (the user asked: "if this repo were rewritten
+  # for a different runtime, would the change be trivial?"):
+  #   - ecosystems:        frameworks / platforms / execution
+  #                        environments the repo belongs to,
+  #                        extends, runs on, or integrates with.
+  #   - capabilities:      functional abilities the repo provides.
+  #                        Independent of the runtime.
+  #   - topics:            flexible discovery tags; not strict
+  #                        ontology, can include narrower concepts.
+  #   - integration_targets: concrete APIs, databases, tools,
+  #                          protocols, services, platforms the
+  #                          repo connects to.
+  #   - project_use_cases: how this source may be useful to my
+  #                        own projects.
+  ecosystems:
+    type: "array"
+    items:
+      type: "string"
+    description: |
+      Frameworks, platforms, or execution ecosystems the repo
+      belongs to, extends, runs on, or integrates with.
+      Controlled vocabulary: see vocab-ecosystems.yaml.
+  capabilities:
+    type: "array"
+    items:
+      type: "string"
+    description: |
+      Functional abilities the repo provides. Independent of the
+      runtime. Controlled vocabulary: see vocab-capabilities.yaml.
+  topics:
+    type: "array"
+    items:
+      type: "string"
+    description: |
+      Flexible discovery tags. NOT a strict ontology field and
+      can include narrower concepts (e.g. `dark-web`,
+      `google-dorks`, `youtube`). Free-form, no controlled vocab.
+  integration_targets:
+    type: "array"
+    items:
+      type: "string"
+    description: |
+      Concrete APIs, databases, tools, protocols, services, or
+      platforms the repo connects to. Controlled vocabulary: see
+      vocab-integration-targets.yaml.
+  project_use_cases:
+    type: "array"
+    items:
+      type: "string"
+    description: |
+      How this source may be useful to my own projects. Controlled
+      vocabulary: see vocab-project-use-cases.yaml.
+  reuse_assessment:
+    type: "object"
+    description: |
+      Operator's plan for this source. The vocabulary of
+      `intended_use` and `priority` is intentionally small so
+      this field can drive a triage queue without over-fitting.
+    properties:
+      intended_use:
+        enum: ["study", "fork", "integrate", "wrap", "vendor", "ignore", "unknown"]
+      priority:
+        enum: ["high", "medium", "low", "unknown"]
+      fit_for_maxios:
+        enum: ["high", "medium", "low", "unknown"]
+      reasons:
+        type: "array"
+        items: { type: "string" }
+      risks:
+        type: "array"
+        items: { type: "string" }
+      next_action:
+        type: "string"
+  maturity_signals:
+    type: "object"
+    description: |
+      Observable signals about the repo's health and usability.
+      None/null means the signal was not assessed; this is
+      deliberately a permissive "soft signal" block — it does
+      not gate the strict validator.
+    properties:
+      license:
+        type: ["string", "null"]
+      stars:
+        type: ["integer", "null"]
+      last_commit_at:
+        type: ["string", "null"]
+        format: "date-time"
+      has_tests:
+        type: ["boolean", "null"]
+      has_docs:
+        type: ["boolean", "null"]
+      installable:
+        type: ["boolean", "null"]
+      dockerized:
+        type: ["boolean", "null"]
+      active:
+        type: ["boolean", "null"]
+      notes:
+        type: "array"
+        items: { type: "string" }
   artifact_role:
     enum: ["n8n-workflow", "agent-skill", "agent-soul", "agent-profile", "agent-prompt",
            "agent-tool-definition", "plugin-definition", "executable-script",

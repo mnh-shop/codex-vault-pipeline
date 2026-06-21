@@ -1,11 +1,29 @@
 # Codex Vault Taxonomy
 
-This document explains the Codex Vault's controlled
-vocabulary for `primary_domain` and how it interacts with
-`related_domains`, `tags`, and `scope.covers`. It is the
-authoritative reference for taxonomy decisions; the
-controlled values themselves live in
-`schemas/vocab-primary-domain.yaml`.
+This document explains the Codex Vault's multi-axis
+classification model. The model has **eight axes** that
+together describe a single source. Each axis is independent
+of the others; a repo can be classified on all axes
+simultaneously without any one of them corrupting another.
+
+| Axis | Field | Vocabulary | What it describes |
+|---|---|---|---|
+| Identity | `primary_domain` | controlled | What the repo **fundamentally IS** |
+| Identity | `related_domains` | controlled | Ecosystems the repo is useful in |
+| Run-time | `ecosystems` | controlled (`vocab-ecosystems.yaml`) | Frameworks / platforms the repo plugs into |
+| Ability | `capabilities` | controlled (`vocab-capabilities.yaml`) | Functional abilities the repo provides |
+| Granular | `topics` | free-form | Narrow discovery tags |
+| Concrete | `integration_targets` | controlled (`vocab-integration-targets.yaml`) | Specific APIs / services the repo connects to |
+| Operator | `project_use_cases` | controlled (`vocab-project-use-cases.yaml`) | How this source may be useful to my own projects |
+| Operator | `reuse_assessment` | structured object | The operator's plan for the source |
+| Operator | `maturity_signals` | structured object | Observable health signals |
+
+The **canonical reference** is the four-taxonomy-doc set:
+
+- `docs/taxonomy.md` (this file) — the overall model
+- `docs/data-model.md` — the field-level schema for each axis
+- `schemas/vocab-*.yaml` — the controlled values for each axis
+- `AGENTS.md` (in the vault repo) — the governance text
 
 ## 1.0 What `primary_domain` describes
 

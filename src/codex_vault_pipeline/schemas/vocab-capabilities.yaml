@@ -1,0 +1,67 @@
+# Codex Vault control vocabulary: capabilities
+#
+# Per the multi-axis taxonomy correction 2026-06-21.
+# Functional abilities the repo provides. Independent of the
+# runtime — a `deep-research` capability can be implemented on
+# hermes-agent, langchain, or a custom runtime.
+schema: "control-vocabulary/v1"
+schema_version: "1.0.0"
+vocab_name: "capabilities"
+vocab_version: "1.0.0"
+description: |
+  Functional abilities the repo provides. Independent of the
+  runtime the repo runs on. A `deep-research` capability can
+  be implemented on hermes-agent, langchain, or a custom
+  runtime.
+allowed:
+  # ----- Research and intelligence -----
+  - "deep-research"
+  - "osint-investigation"
+  - "web-search"
+  - "evidence-collection"
+  - "entity-resolution"
+  - "threat-intelligence"
+  # ----- Automation and orchestration -----
+  - "workflow-automation"
+  - "agent-orchestration"
+  # ----- Memory and retrieval -----
+  - "memory"
+  - "retrieval"
+  - "rag"
+  # ----- Browser and code -----
+  - "browser-automation"
+  - "code-generation"
+  - "data-extraction"
+  - "report-generation"
+  # ----- Operations -----
+  - "monitoring"
+notes: |
+  - "deep-research": recursive / multi-step research.
+  - "osint-investigation": open-source intelligence workflow.
+  - "web-search": web search integration.
+  - "evidence-collection": gather and cite sources.
+  - "entity-resolution": resolve entities (people, companies, hosts).
+  - "threat-intelligence": threat intel feeds / IOCs.
+  - "workflow-automation": orchestrate multi-step workflows.
+  - "agent-orchestration": coordinate multiple agents.
+  - "memory": persistent agent memory.
+  - "retrieval": document/vector retrieval.
+  - "rag": retrieval-augmented generation (RAG is a TECHNIQUE,
+    not a domain — it is now controlled here as a capability).
+  - "browser-automation": drive a headless browser.
+  - "code-generation": produce code.
+  - "data-extraction": pull structured data from unstructured sources.
+  - "report-generation": produce reports / writeups.
+  - "monitoring": observability, alerting, health checks.
+
+  Distinction from `primary_domain`:
+  - `primary_domain` is intrinsic identity. A pure-OSINT repo
+    has primary_domain=osint.
+  - `capabilities` are what the repo DOES. The same OSINT repo
+    might be capabilities=[osint-investigation, web-search,
+    entity-resolution, evidence-collection].
+
+  Distinction from `topics`:
+  - `capabilities` is a controlled vocab of well-known abilities.
+  - `topics` is a free-form list of narrow concepts
+    (e.g. `dark-web`, `google-dorks`, `youtube`).

@@ -1,0 +1,53 @@
+# Codex Vault control vocabulary: ecosystems
+#
+# Per the multi-axis taxonomy correction 2026-06-21.
+# Frameworks, platforms, or execution ecosystems the repo
+# belongs to, extends, runs on, or integrates with. Distinct
+# from `primary_domain` (which is the repo's intrinsic
+# identity) and from `capabilities` (which are the functional
+# abilities the repo provides). A single repo can belong to
+# multiple ecosystems.
+schema: "control-vocabulary/v1"
+schema_version: "1.0.0"
+vocab_name: "ecosystems"
+vocab_version: "1.0.0"
+description: |
+  Frameworks, platforms, or execution ecosystems the repo
+  belongs to, extends, runs on, or integrates with.
+allowed:
+  # ----- Agent runtimes and frameworks -----
+  - "hermes-agent"
+  - "n8n"
+  - "agentfield"
+  - "mcp"
+  - "langchain"
+  - "llamaindex"
+  - "openai-agents"
+  - "crewai"
+  - "autogen"
+  - "browser-use"
+  # ----- Execution / deployment environments -----
+  - "github-actions"
+  - "docker"
+  - "kubernetes"
+notes: |
+  - "hermes-agent": Nous Research Hermes Agent runtime.
+  - "n8n": n8n workflow automation runtime.
+  - "agentfield": Agent-Field control plane.
+  - "mcp": Model Context Protocol (Anthropic).
+  - "langchain": LangChain framework.
+  - "llamaindex": LlamaIndex framework.
+  - "openai-agents": OpenAI Agents SDK.
+  - "crewai": CrewAI multi-agent framework.
+  - "autogen": Microsoft AutoGen.
+  - "browser-use": browser-automation agent framework.
+  - "github-actions": GitHub Actions CI/CD.
+  - "docker": Docker container runtime.
+  - "kubernetes": Kubernetes orchestration.
+
+  Distinction from `primary_domain`:
+  - `primary_domain`: the repo's intrinsic identity (e.g. an
+    OSINT repo has primary_domain=osint).
+  - `ecosystems`: the runtimes the repo plugs into. The same
+    OSINT repo might be ecosystems=[hermes-agent, mcp] (a skill
+    for Hermes Agent that exposes itself via MCP).

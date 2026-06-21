@@ -1,0 +1,40 @@
+# Codex Vault control vocabulary: project_use_cases
+#
+# Per the multi-axis taxonomy correction 2026-06-21.
+# How this source may be useful to my own projects. This is
+# the operator's personal project taxonomy; values should
+# reflect the projects the vault is supporting, not a generic
+# external ontology.
+schema: "control-vocabulary/v1"
+schema_version: "1.0.0"
+vocab_name: "project_use_cases"
+vocab_version: "1.0.0"
+description: |
+  How this source may be useful to my own projects. The values
+  here are operator-specific — they reflect the projects the
+  vault is supporting, not a generic external ontology.
+allowed:
+  - "maxios"
+  - "osint-tool"
+  - "deep-research-system"
+  - "travel-automation"
+  - "workflow-automation"
+  - "coding-agent-memory"
+  - "agent-orchestration"
+  - "knowledge-factory"
+notes: |
+  - "maxios": the operator's primary personal project
+    (a multi-agent OSINT / knowledge system).
+  - "osint-tool": a standalone OSINT / reconnaissance tool.
+  - "deep-research-system": a long-running deep-research
+    backend.
+  - "travel-automation": travel itinerary / booking automation.
+  - "workflow-automation": generic n8n-style workflow tool.
+  - "coding-agent-memory": memory / skills layer for a coding
+    agent.
+  - "agent-orchestration": coordinating multiple agents.
+  - "knowledge-factory": end-to-end ingest -> analyze ->
+    write pipeline.
+
+  This list is intentionally closed and small. New projects
+  are added as a minor-version bump to vocab_version.

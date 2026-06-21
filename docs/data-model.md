@@ -33,7 +33,34 @@ The pipeline writes Layers A through D and validates Layer E
 
 A source record is the immutable declaration of an upstream
 repository or dataset. The pipeline creates exactly **one**
-source record per ingest. Key fields:
+source record per ingest.
+
+### 2.1 Multi-axis classification (the 2026-06-21 taxonomy model)
+
+A source is classified along **multiple independent axes** so
+that one repo can simultaneously be, for example, an OSINT
+repo, a Hermes Agent skill, an MCP integration, and a
+deep-research component — without corrupting `primary_domain`.
+
+| Axis | Field | Cardinality | Vocabulary | What it describes |
+|---|---|---|---|---|
+| Identity | `primary_domain` | exactly 1 | controlled (`vocab-primary-domain.yaml`) | What the repo **fundamentally IS** |
+| Identity | `related_domains` | 0+ | controlled (subset of `vocab-primary-domain.yaml`) | Ecosystems the repo is useful in (drives Obsidian ecosystem coloring) |
+| Run-time | `ecosystems` | 0+ | controlled (`vocab-ecosystems.yaml`) | Frameworks / platforms / execution environments the repo belongs to, extends, runs on, or integrates with |
+| Ability | `capabilities` | 0+ | controlled (`vocab-capabilities.yaml`) | Functional abilities the repo provides, independent of the runtime |
+| Granular | `topics` | 0+ | free-form | Narrow discovery tags (e.g. `dark-web`, `google-dorks`, `youtube`); not a strict ontology |
+| Concrete | `integration_targets` | 0+ | controlled (`vocab-integration-targets.yaml`) | Specific APIs / databases / tools / protocols the repo connects to |
+| Operator | `project_use_cases` | 0+ | controlled (`vocab-project-use-cases.yaml`) | How this source may be useful to my own projects |
+| Operator | `reuse_assessment` | object | — | The operator's plan for the source (see schema) |
+| Operator | `maturity_signals` | object | — | Observable health signals (see schema) |
+
+The other Layer A fields (intrinsic identity + role + authority
++ lifecycle + acquisition + coverage + runtimes + Obsidian
+cssclasses) are unchanged. The new fields are all **optional**
+and **additive** — existing records do not need to be
+re-annotated.
+
+### 2.2 Core fields (always required)
 
 | Field | Type | Required | Notes |
 |---|---|---|---|
@@ -46,6 +73,65 @@ source record per ingest. Key fields:
 | `lifecycle_status` | enum | yes | `vocab-lifecycle-status.yaml` |
 | `acquisition.acquired_files` | int | yes | equals `expected_files` minus `.git/` |
 | `coverage.coverage_ratio` | float | yes | must equal 1.0 for `complete` status |
+
+### 2.3 Worked examples
+
+**Example A — Hermes OSINT skill** (the example from the
+taxonomy spec):
+
+```yaml
+primary_domain: osint
+ecosystems:
+  - hermes-agent
+capabilities:
+  - osint-investigation
+  - research-automation
+artifact_role: agent-skill
+source_role: community-extension
+topics:
+  - reconnaissance
+  - evidence-gathering
+relations:
+  - relation: extends
+    target_source_id: github:NousResearch/hermes-agent
+```
+
+**Example B — n8n OSINT workflow collection**:
+
+```yaml
+primary_domain: osint
+ecosystems:
+  - n8n
+capabilities:
+  - workflow-automation
+  - osint-investigation
+artifact_role: workflow-collection
+source_role: example-collection
+topics:
+  - shodan
+  - telegram
+  - google-sheets
+```
+
+**Example C — deep-research agent framework**:
+
+```yaml
+primary_domain: deep-research
+ecosystems:
+  - langchain
+  - mcp
+capabilities:
+  - deep-research
+  - web-search
+  - report-generation
+  - evidence-collection
+artifact_role: agent-platform
+source_role: reference
+```
+
+Note how the **same** `primary_domain` value (`osint` or
+`deep-research`) coexists with **different** `ecosystems` and
+`capabilities` lists. The axes are independent.
 
 ## 3.0 Layer B — Artifact
 
