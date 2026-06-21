@@ -4,6 +4,46 @@ This file documents the conventions and boundaries for working
 on the `codex-vault-pipeline` repository. It is the
 `AGENTS.md` for agents and humans editing this codebase.
 
+## Repository Boundary / Git Safety
+
+The Pipeline Git root is **`/Users/admin1/agent-brain/codex-vault-pipeline`**.
+
+**Hard rules:**
+
+- The only remote is **`git@github.com:mnh-shop/codex-vault-pipeline.git`**.
+- The pipeline repo contains **code, schemas, docs, tests, and
+  CLI wrappers only**.
+- It must **not** contain raw source snapshots, `.runtime/`,
+  databases, indexes, LanceDB files, embeddings, backups, or
+  vault content.
+- Pipeline commands must operate on the vault only through
+  `--vault-root` or the `CODEX_VAULT_ROOT` environment variable.
+- The pipeline must **not** modify the vault's wiki, candidate
+  notes, or migration reports. Those are owner-managed.
+- The pipeline must **not** promote candidates. Promotion is a
+  separate, explicit action with its own audit trail.
+
+**Pre-commit safety check (mandatory before every commit):**
+
+```bash
+git rev-parse --show-toplevel
+```
+
+must equal:
+
+```text
+/Users/admin1/agent-brain/codex-vault-pipeline
+```
+
+If the toplevel is anything else (especially `/Users/admin1/agent-brain/`
+or any parent), **abort the commit** — the working directory is
+the wrong scope.
+
+The vault (a separate, sibling repo) holds the data this
+pipeline operates on. The pipeline never ships or holds the
+vault's data, runtime data, raw captures, indexes, or
+embeddings.
+
 ## 1. Non-Negotiables
 
 - The pipeline repo contains **code, schemas, docs, and tests only**.
