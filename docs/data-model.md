@@ -133,6 +133,134 @@ Note how the **same** `primary_domain` value (`osint` or
 `deep-research`) coexists with **different** `ecosystems` and
 `capabilities` lists. The axes are independent.
 
+### 2.4 Technical repo profile + workflow synthesis (2026-06-21)
+
+Taxonomy fields answer **WHAT IS THIS REPO?** Technical profile
+fields answer **HOW DOES IT RUN, AND HOW DOES IT COMPOSE WITH
+OTHER REPOS INTO LARGER WORKFLOWS?** Both are part of Layer A,
+but they have different sources of truth and different consumers.
+
+| Concern | Taxonomy fields | Technical profile fields |
+|---|---|---|
+| Question | What is this repo? Which ecosystem? | What languages? How does it run? What can it provide? |
+| Populated by | Operator (manual) or LLM distillation | The deterministic extractor `extractors/tech_profile.py` (no LLM) |
+| Cardinality | 0..1 per field (lists are short) | 0..N per field (lists can be long) |
+| Required | `primary_domain` is required; multi-axis fields are optional | `source_platform` is required for new sources going forward; the rest are optional |
+| Vocabulary | Controlled vocabs (per-axis YAML) | Mostly free-form, with two inline enums (`interfaces[].kind` and `workflow_synthesis.composition_edges[].relation`) |
+
+The five new fields:
+
+| Field | Type | What it captures |
+|---|---|---|
+| `source_platform` | enum: `github` | The hosting platform. `github` only for now. |
+| `repo_identity` | object | `host: github.com`, `owner`, `repo`, `full_name`, `clone_url`, `ssh_url`, `default_branch`, `pinned_commit`, `upstream_of_fork`, `fork_intent` |
+| `repo_profile` | object | `languages`, `language_breakdown`, `dependency_manifests[]`, `major_dependencies[]`, `runtime_stack[]`, `build_systems[]`, `test_systems[]`, `entrypoints[]`, `services[]`, `data_stores[]`, `config_files[]` |
+| `interfaces` | array | Each entry: `kind` (one of `cli`, `rest-api`, `graphql-api`, `python-package`, `npm-package`, `docker-service`, `mcp-server`, `mcp-client`, `n8n-workflow`, `agent-skill`, `plugin`, `web-ui`, `library`, `dataset`, `unknown`), `name`, `path`, `protocol`, `notes` |
+| `workflow_synthesis` | object | `workflow_roles[]`, `provides[]`, `requires[]`, `compatible_with[]`, `composition_edges[]` (each with `relation` ∈ {`can-feed`, `can-call`, `can-wrap`, `can-index`, `can-store-in`, `can-deploy-with`, `can-orchestrate`, `conflicts-with`, `requires`, `optional`}, `target`, `evidence`), `composition_notes[]` |
+
+**Required for new sources going forward:** `source_platform`.
+Existing 34 source records may be backfilled to `source_platform:
+github` deterministically from their `source_id` (all 34 start
+with `github:`).
+
+**Deterministic extractor:** `src/codex_vault_pipeline/extractors/tech_profile.py`.
+The extractor walks `${VAULT_ROOT}/raw/<repo>/` and populates
+`repo_profile`, `interfaces`, and most of `repo_identity` from
+file extensions, manifest files (Python, Node, Go, Rust, JS,
+Docker, Helm), docker-compose services, and recognized file
+names. It never reads `.env`, `*.pem`, `*credentials*`,
+`*secret*`, `*token*`, or any secret-bearing file. It never
+parses environment-variable VALUES into semantic text. The
+extractor is a pure function: same input → same output.
+
+**Worked example — deep-research frontend + vector backend:**
+
+```yaml
+primary_domain: deep-research
+ecosystems:
+  - langchain
+capabilities:
+  - deep-research
+  - web-search
+  - report-generation
+repo_profile:
+  languages:
+    - python
+  runtime_stack:
+    - docker
+  data_stores:
+    - milvus
+interfaces:
+  - kind: cli
+  - kind: python-package
+workflow_synthesis:
+  workflow_roles:
+    - research-agent
+  provides:
+    - research-plan
+    - cited-report
+  requires:
+    - search-api
+    - vector-store
+```
+
+**Worked example — OSINT Hermes skill:**
+
+```yaml
+primary_domain: osint
+ecosystems:
+  - hermes-agent
+capabilities:
+  - osint-investigation
+  - evidence-collection
+artifact_role: agent-skill
+interfaces:
+  - kind: agent-skill
+workflow_synthesis:
+  workflow_roles:
+    - osint-skill
+  provides:
+    - evidence-items
+  requires:
+    - search-api
+```
+
+**Worked example — retrieval backend:**
+
+```yaml
+ecosystems:
+  - mcp
+capabilities:
+  - retrieval
+  - rag
+repo_profile:
+  languages:
+    - python
+  data_stores:
+    - postgres
+    - milvus
+interfaces:
+  - kind: rest-api
+  - kind: mcp-server
+workflow_synthesis:
+  workflow_roles:
+    - retrieval-backend
+  provides:
+    - document-search
+    - vector-search
+  requires:
+    - documents
+```
+
+**Backfill.** Existing 34 source records are NOT auto-rewritten
+by this schema bump. A backfill report (no record changes) is
+written to `${VAULT_ROOT}/.runtime/reports/tech-profile-backfill-report.json`
+by `codex_vault_pipeline.extractors.tech_profile_backfill_report`.
+The report summarizes what can be inferred for each source. A
+future, opt-in backfill tool may overlay the profile onto the
+`source.v1.yaml` files, but only after the operator explicitly
+authorizes it.
+
 ## 3.0 Layer B — Artifact
 
 **Schema:** `schemas/artifact.schema.yaml`

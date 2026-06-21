@@ -45,6 +45,13 @@ itself.
    │  ── each accepts --vault-root and resolves       │
    │     every subpath via paths.resolve_paths         │
    ├─────────────────────────────────────────────────┤
+   │  src/codex_vault_pipeline/extractors/            │
+   │  ── tech_profile.py (deterministic tech-profile  │
+   │     extractor; populates source_platform,        │
+   │     repo_identity, repo_profile, interfaces)     │
+   │  ── tech_profile_backfill_report.py              │
+   │     (no-record-rewrite feasibility report)        │
+   ├─────────────────────────────────────────────────┤
    │  src/codex_vault_pipeline/schemas/               │
    │  ── 10 schema YAMLs (Layer A-E)                  │
    │  ── 8 vocab YAMLs (controlled vocabularies)       │

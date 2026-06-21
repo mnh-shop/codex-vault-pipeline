@@ -243,9 +243,312 @@ properties:
       discovered_via: { type: "string" }
       discovery_date: { type: "string", format: "date-time" }
       notes: { type: "string" }
+  # ----- artifact_kind: 2026-06-21 minimal extension -----
+  # Added `agent` (AI agent platforms/shaped repos — distinct from
+  # `deployment` (infra) and `repository` (generic)) and `library`
+  # (reusable libraries — distinct from `source-code` (generic) and
+  # `plugin` (host-extending)) because 11 legitimate source records
+  # already use these values. Existing taxonomy and provenance are
+  # preserved.
+  # ----- TECHNICAL REPO PROFILING + WORKFLOW SYNTHESIS 2026-06-21 -----
+  # Concept split (per user spec 2026-06-21):
+  #   - TAXONOMY fields (primary_domain, related_domains, ecosystems,
+  #     capabilities, topics, integration_targets, project_use_cases,
+  #     reuse_assessment, maturity_signals) answer: WHAT IS THIS REPO?
+  #   - TECHNICAL PROFILE fields (source_platform, repo_identity,
+  #     repo_profile, interfaces, workflow_synthesis) answer: HOW DOES
+  #     IT RUN, WHAT CAN IT PROVIDE, AND HOW DOES IT COMPOSE WITH
+  #     OTHER REPOS INTO LARGER WORKFLOWS?
+  #
+  # All new fields are optional and additive. Existing 34 source
+  # records do not need to be re-annotated. New sources going
+  # forward SHOULD populate these fields (the extractor in
+  # `src/codex_vault_pipeline/tools/extract_tech_profile.py` is the
+  # deterministic source for them).
+  #
+  # ----- source_platform -----
+  # Required for new sources going forward. The Codex Vault is
+  # primarily for GitHub repositories. Existing records MAY be
+  # backfilled to `github` deterministically from `source_id` (which
+  # starts with `github:<owner>/<repo>`).
+  source_platform:
+    type: "string"
+    enum:
+      - "github"
+    description: |
+      The hosting platform for this source. The Codex Vault is
+      primarily for GitHub repositories. Allowed: `github`. Future
+      hosts (e.g. `gitlab`, `codeberg`) are deliberately excluded
+      until the vault explicitly supports them; the field exists
+      so the multi-repo workflow synthesizer can rely on the
+      canonical URL shape.
+  # ----- repo_identity -----
+  # GitHub-specific identity block. `host` is `github.com`. The
+  # owner/repo/full_name are deterministic from `source_id` for
+  # existing `github:` sources. clone_url/ssh_url are inferred.
+  # pinned_commit is the immutable commit this vault is pinned to.
+  # upstream_of_fork + fork_intent describe fork relationships.
+  repo_identity:
+    type: "object"
+    description: |
+      GitHub-specific identity. `host` is `github.com`; the rest
+      of the block is populated by the deterministic extractor
+      from the source_id and the resolved commit.
+    properties:
+      host: { type: "string", enum: ["github.com"] }
+      owner: { type: "string" }
+      repo: { type: "string" }
+      full_name: { type: "string" }
+      clone_url: { type: "string", format: "uri" }
+      ssh_url: { type: "string" }
+      default_branch: { type: "string" }
+      pinned_commit: { type: "string" }
+      upstream_of_fork: { type: "string" }
+      fork_intent:
+        type: "string"
+        enum: ["study", "fork", "integrate", "vendor", "wrap", "unknown"]
+  # ----- repo_profile -----
+  # Technical characteristics of the repo: languages, dependency
+  # manifests, runtime stack, build/test systems, entrypoints,
+  # services, data stores, config files. All derivable from the
+  # raw/ tree by the deterministic extractor; no manual annotation
+  # required for new sources.
+  repo_profile:
+    type: "object"
+    description: |
+      Technical profile of the repo. All subfields are
+      deterministically derivable from the raw/ tree by
+      `src/codex_vault_pipeline/tools/extract_tech_profile.py`.
+    properties:
+      languages:
+        type: "array"
+        items: { type: "string" }
+        description: |
+          Programming languages detected by file extensions and
+          manifest files (e.g. `python`, `typescript`,
+          `rust`, `go`). The list is deduplicated and sorted
+          alphabetically.
+      language_breakdown:
+        type: "object"
+        additionalProperties: { type: "number" }
+        description: |
+          Fractional language shares (0.0–1.0) inferred from
+          file extension counts. Best-effort, not exact.
+      dependency_manifests:
+        type: "array"
+        items:
+          type: "object"
+          properties:
+            path: { type: "string" }
+            ecosystem: { type: "string" }
+            package_manager: { type: "string" }
+            dependency_count: { type: "integer" }
+            dev_dependency_count: { type: "integer" }
+            lockfile_present: { type: "boolean" }
+        description: |
+          Dependency manifests discovered in the raw/ tree.
+          Recognized names: `pyproject.toml`, `requirements*.txt`,
+          `setup.py`, `Pipfile`, `poetry.lock`, `package.json`,
+          `pnpm-lock.yaml`, `yarn.lock`, `package-lock.json`,
+          `go.mod`, `go.sum`, `Cargo.toml`, `Cargo.lock`,
+          `Dockerfile`, `docker-compose*.yml`, `helm/Chart.yaml`.
+      major_dependencies:
+        type: "array"
+        items:
+          type: "object"
+          properties:
+            name: { type: "string" }
+            ecosystem: { type: "string" }
+            version_spec: { type: "string" }
+            source_path: { type: "string" }
+        description: |
+          Major dependencies extracted from each manifest.
+          Sensitive values (env vars, tokens) are NEVER parsed
+          into semantic text.
+      runtime_stack:
+        type: "array"
+        items: { type: "string" }
+        description: |
+          Runtime/runtime components the repo depends on
+          (e.g. `python>=3.11`, `node>=18`, `docker`, `kubernetes`,
+          `postgres`, `redis`).
+      build_systems:
+        type: "array"
+        items: { type: "string" }
+        description: |
+          Build systems detected (e.g. `make`, `poetry`,
+          `npm scripts`, `cargo`, `go build`, `docker build`).
+      test_systems:
+        type: "array"
+        items: { type: "string" }
+        description: |
+          Test systems detected (e.g. `pytest`, `jest`, `cargo test`,
+          `go test`, `n8n workflow tests`).
+      entrypoints:
+        type: "array"
+        items:
+          type: "object"
+          properties:
+            kind: { type: "string" }
+            path: { type: "string" }
+            command: { type: "string" }
+        description: |
+          Entry points the repo exposes. `kind` is one of:
+          `cli`, `dockerfile`, `compose-service`, `package-script`,
+          `python-console-script`, `api-server`, `worker`.
+          Detected conservatively: only paths that are
+          unambiguous (e.g. files at the repo root with recognized
+          names, or script names declared in package.json).
+      services:
+        type: "array"
+        items: { type: "string" }
+        description: |
+          Named services the repo runs (e.g. `api`, `worker`,
+          `db`, `cache`). Detected from docker-compose,
+          Kubernetes manifests, and n8n workflow JSONs.
+      data_stores:
+        type: "array"
+        items: { type: "string" }
+        description: |
+          Data stores the repo depends on (e.g. `postgres`,
+          `redis`, `milvus`, `sqlite`, `s3`). Detected from
+          dependency manifests, docker-compose env, and
+          configuration files. NEVER includes the value of any
+          connection string.
+      config_files:
+        type: "array"
+        items: { type: "string" }
+        description: |
+          Configuration files at the repo root or in recognized
+          config dirs (e.g. `pyproject.toml`, `package.json`,
+          `docker-compose.yml`, `Dockerfile`, `.env.example`,
+          `helm/Chart.yaml`).
+  # ----- interfaces -----
+  # What surfaces this repo exposes. Each interface is a single
+  # entry; multiple interfaces of the same kind are allowed. The
+  # `kind` enum is the canonical shape vocabulary for downstream
+  # workflow synthesis. Path/protocol/notes are optional metadata.
+  interfaces:
+    type: "array"
+    items:
+      type: "object"
+      properties:
+        kind:
+          type: "string"
+          enum:
+            - "cli"
+            - "rest-api"
+            - "graphql-api"
+            - "python-package"
+            - "npm-package"
+            - "docker-service"
+            - "mcp-server"
+            - "mcp-client"
+            - "n8n-workflow"
+            - "agent-skill"
+            - "plugin"
+            - "web-ui"
+            - "library"
+            - "dataset"
+            - "unknown"
+        name: { type: "string" }
+        path: { type: "string" }
+        protocol: { type: "string" }
+        notes: { type: "string" }
+    description: |
+      The interfaces this repo exposes to other repos or to the
+      outside world. Used by the workflow synthesizer to compose
+      multi-repo workflows. Detection is conservative: only
+      interfaces that are unambiguous from the raw/ tree are
+      included. `kind` is the controlled enum. `name`/`path`/
+      `protocol`/`notes` are optional free-form metadata.
+  # ----- workflow_synthesis -----
+  # How this repo composes into larger workflows with other repos.
+  # workflow_roles: how this repo is positioned in a multi-repo
+  #   workflow (e.g. `research-agent`, `retrieval-backend`,
+  #   `osint-skill`, `vector-store`).
+  # provides: things this repo gives to other repos (e.g.
+  #   `research-plan`, `cited-report`, `document-search`,
+  #   `evidence-items`).
+  # requires: things this repo needs from other repos (e.g.
+  #   `search-api`, `vector-store`, `documents`).
+  # compatible_with: kinds of repos this repo is known to play
+  #   well with.
+  # composition_edges: typed edges to other repos. The
+  #   `relation` enum is the canonical composition vocabulary.
+  # composition_notes: human-readable notes about composition
+  #   (no secrets, no env values).
+  workflow_synthesis:
+    type: "object"
+    description: |
+      How this repo composes with other repos into multi-repo
+      workflows. This is the field the multi-repo workflow
+      synthesizer reads to stitch workflows together.
+    properties:
+      workflow_roles:
+        type: "array"
+        items: { type: "string" }
+        description: |
+          Roles this repo plays in a workflow (e.g.
+          `research-agent`, `retrieval-backend`,
+          `osint-skill`, `vector-store`).
+      provides:
+        type: "array"
+        items: { type: "string" }
+        description: |
+          What this repo provides to other repos (e.g.
+          `research-plan`, `cited-report`,
+          `document-search`, `vector-search`,
+          `evidence-items`).
+      requires:
+        type: "array"
+        items: { type: "string" }
+        description: |
+          What this repo requires from other repos (e.g.
+          `search-api`, `vector-store`, `documents`).
+      compatible_with:
+        type: "array"
+        items: { type: "string" }
+        description: |
+          Kinds of repos this repo is known to compose well
+          with (e.g. `mcp-server`, `rest-api`,
+          `vector-store`).
+      composition_edges:
+        type: "array"
+        items:
+          type: "object"
+          properties:
+            relation:
+              type: "string"
+              enum:
+                - "can-feed"
+                - "can-call"
+                - "can-wrap"
+                - "can-index"
+                - "can-store-in"
+                - "can-deploy-with"
+                - "can-orchestrate"
+                - "conflicts-with"
+                - "requires"
+                - "optional"
+            target: { type: "string" }
+            evidence: { type: "string" }
+        description: |
+          Typed composition edges from this repo to other
+          repos. `target` is a `source_id` (or a generic kind
+          token like `vector-store`); `relation` is the
+          controlled composition vocabulary; `evidence` is a
+          free-form short note.
+      composition_notes:
+        type: "array"
+        items: { type: "string" }
+        description: |
+          Human-readable composition notes. Free-form; no
+          secrets or env values.
+  # ----- End of technical-profile block -----
   artifact_kind:
     enum: ["repository", "documentation", "source-code", "workflow", "skill", "plugin",
-           "deployment", "website", "dataset", "unknown"]
+           "deployment", "website", "dataset", "agent", "library", "unknown"]
   language_policy:
     type: "object"
     required: ["primary", "allowed", "detection_method", "detection_min_confidence"]
@@ -270,7 +573,12 @@ properties:
     type: "object"
     required: ["status", "confidence"]
     properties:
-      status: { enum: ["pinned", "unresolved", "failed", "not-attempted"] }
+      # ----- revision_resolution.status: 2026-06-21 minimal extension -----
+      # Added `resolved` (successful resolution with resolved_commit
+      # populated — distinct from `pinned` (a user-specified literal
+      # pin) and the failure states) because 2 legitimate source
+      # records already use this value with populated resolved_commit.
+      status: { enum: ["pinned", "resolved", "unresolved", "failed", "not-attempted"] }
       confidence: { enum: ["high", "medium", "low", "unknown"] }
       requested_ref: { type: "string" }
       resolved_commit: { type: "string" }
