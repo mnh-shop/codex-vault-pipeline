@@ -1,0 +1,34 @@
+# Codex Vault control vocabulary: primary_domain
+# Per AGENTS.md v3.3 + user correction 2026-06-20.
+# Replaces vocab-domain-family. A repository's intrinsic identity.
+schema: "control-vocabulary/v1"
+schema_version: "1.0.0"
+vocab_name: "primary_domain"
+vocab_version: "1.0.0"
+description: "Intrinsic identity of a repository or artifact. Not the same as which ecosystem it is useful in (see related_domains)."
+allowed:
+  - "hermes-agent"
+  - "n8n"
+  - "agentfield"
+  - "coding-agents"
+  - "training-systems"
+  - "ai-content-generation"
+  - "memory-systems"
+  - "cross-domain"
+  - "general-development"
+  - "unknown"
+notes: |
+  - "hermes-agent": Nous Research Hermes Agent — its core, official extensions, deployment packaging.
+  - "n8n": n8n workflow automation — core, integrations, templates, skills.
+  - "agentfield": Agent-Field control plane and ecosystem.
+  - "coding-agents": A coding-agent tool/skill/integration that is broadly useful across multiple agent runtimes (e.g. memory systems, skill packs, observability, deployment).
+  - "training-systems": RL / fine-tuning infrastructure (e.g. Tinker-Atropos).
+  - "ai-content-generation": AI-driven content pipelines (e.g. autonovel).
+  - "memory-systems": Standalone memory/knowledge tools.
+  - "cross-domain": Real cross-domain integration.
+  - "general-development": Reference material not tied to a specific domain.
+  - "unknown": Provenance is not yet determined.
+
+  Per the user's taxonomy correction: do NOT force every repo into hermes-agent/n8n/agentfield.
+  Tools that are useful across runtimes should be primary_domain=coding-agents (or similar)
+  and use related_domains to indicate which ecosystems include them.

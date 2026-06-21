@@ -1,0 +1,32 @@
+# Codex Vault control vocabulary: source_role
+# Per AGENTS.md v3.3 §6. Relationship of a source to a core project.
+schema: "control-vocabulary/v1"
+schema_version: "1.0.0"
+vocab_name: "source_role"
+vocab_version: "1.0.0"
+description: "How a source relates to a core project. Distinct from authority_level (which describes official endorsement)."
+allowed:
+  - "core"
+  - "official-extension"
+  - "community-extension"
+  - "integration"
+  - "reference"
+  - "mirror"
+  - "fork"
+  - "dataset"
+  - "example-collection"
+  - "deployment"
+  - "unknown"
+notes: |
+  Per the user's correction: "Community recommendation does not imply official status or
+  project ownership." A source can be widely used and recommended by the community
+  (authority_level: community) without being an official extension (source_role:
+  community-extension) or even an integration (source_role: integration).
+
+  source_role vs authority_level:
+  - "core" + "canonical-upstream": the canonical project itself.
+  - "official-extension" + "official": published by the upstream as an official extension.
+  - "community-extension" + "community": community-built extension.
+  - "integration" + "community": bridges between projects; not necessarily endorsed by either.
+  - "deployment" + "community" or "third-party": packaging/deployment.
+  - "example-collection" + "community": example/template.

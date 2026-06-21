@@ -1,0 +1,25 @@
+# Codex Vault control vocabulary: target_runtimes
+# Per AGENTS.md v3.3 + user correction 2026-06-20. Which runtimes an artifact targets.
+schema: "control-vocabulary/v1"
+schema_version: "1.0.0"
+vocab_name: "target_runtimes"
+vocab_version: "1.0.0"
+description: "Which runtimes / execution environments an artifact or repository targets."
+allowed:
+  - "hermes-agent"
+  - "n8n"
+  - "agentfield"
+  - "claude-code"
+  - "openai-codex"
+  - "generic"
+  - "unknown"
+notes: |
+  - "hermes-agent": Nous Research Hermes Agent runtime.
+  - "n8n": n8n workflow engine.
+  - "agentfield": AgentField control plane.
+  - "claude-code": Anthropic Claude Code.
+  - "openai-codex": OpenAI Codex CLI / API.
+  - "generic": No specific runtime; broadly applicable.
+  - "unknown": Provenance is not yet determined.
+
+  A single artifact can target multiple runtimes; emit as a list.

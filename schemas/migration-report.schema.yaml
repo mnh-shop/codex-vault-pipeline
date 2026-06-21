@@ -1,0 +1,81 @@
+$schema: "https://json-schema.org/draft/2020-12/schema"
+$id: "https://codex-vault.local/schemas/migration-report.schema.yaml"
+title: "Migration Report (Phase 5)"
+description: "Per-candidate migration report per AGENTS.md §16. Records the candidate, the old note (if any), new evidence links, unresolved claims, validation status, and promotion blockers."
+
+type: "object"
+required:
+  - "schema"
+  - "schema_version"
+  - "candidate_slug"
+  - "run_id"
+  - "generated_at"
+  - "candidate_note"
+  - "new_evidence_links"
+  - "unresolved_claims"
+  - "validation_status"
+  - "promotion_eligible"
+  - "promotion_blockers"
+  - "evidence_summary"
+
+properties:
+  schema:
+    const: "migration-report/v1"
+  schema_version: { type: "string" }
+  candidate_slug: { type: "string", pattern: "^[a-z0-9][a-z0-9-]*$" }
+  run_id: { type: "string" }
+  generated_at: { type: "string", format: "date-time" }
+  old_note: { type: ["string", "null"] }
+  candidate_note: { type: "string" }
+  preserved_sections:
+    type: "array"
+    items: { type: "string" }
+  removed_sections:
+    type: "array"
+    items: { type: "string" }
+  new_evidence_links:
+    type: "array"
+    items:
+      type: "object"
+      required: ["source_id", "artifact_id", "unit_id", "anchor", "relation", "occurrence_id"]
+      properties:
+        source_id: { type: "string" }
+        artifact_id: { type: "string", pattern: "^sha256:[0-9a-f]{64}$" }
+        unit_id: { type: "string" }
+        anchor: { type: "string" }
+        relation:
+          enum: ["part-of", "extends", "integrates-with", "wraps", "deploys", "forks",
+                 "mirrors", "documents", "examples-for", "depends-on", "implements",
+                 "replaces", "supersedes", "duplicate-of", "variant-of", "derived-from", "references"]
+        occurrence_id: { type: "string", pattern: "^sha256:[0-9a-f]{64}$" }
+  unresolved_claims:
+    type: "array"
+    items: { type: "string" }
+  validation_status: { enum: ["pending", "validating", "passed", "failed"] }
+  validation_notes: { type: "string" }
+  promotion_eligible: { type: "boolean" }
+  promotion_blockers:
+    type: "array"
+    items: { type: "string" }
+  evidence_summary:
+    type: "object"
+    required: ["source_id", "artifact_count", "occurrence_count", "unit_count"]
+    properties:
+      source_id: { type: "string" }
+      artifact_count: { type: "integer", minimum: 0 }
+      occurrence_count: { type: "integer", minimum: 0 }
+      unit_count: { type: "integer", minimum: 0 }
+      redacted_unit_count: { type: "integer", minimum: 0 }
+      security_counter:
+        type: "object"
+      blocked_excluded: { type: "integer", minimum: 0 }
+      flagged_redacted: { type: "integer", minimum: 0 }
+      clean_count: { type: "integer", minimum: 0 }
+  provenance:
+    type: "object"
+    properties:
+      deterministic_metadata: { type: "string" }
+      llm_synthesis_model: { type: "string" }
+      llm_synthesis_run_id: { type: "string" }
+
+additionalProperties: true

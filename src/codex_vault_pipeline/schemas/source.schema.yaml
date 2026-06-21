@@ -1,0 +1,212 @@
+$schema: "https://json-schema.org/draft/2020-12/schema"
+$id: "https://codex-vault.local/schemas/source.schema.yaml"
+title: "Source (Layer A)"
+description: "Layer A: a repository, website, dataset, docs site, or release collection that the vault tracks. One record per source. Per the taxonomy correction, every ingested repository is its own source record (no aggregation by source_id)."
+
+type: "object"
+required:
+  - "schema"
+  - "schema_version"
+  - "record_id"
+  - "created_at"
+  - "generator"
+  - "generator_version"
+  - "run_id"
+  - "content_hash"
+  - "source_id"
+  - "requested_ref"
+  - "resolved_revision"
+  - "resolved_commit"
+  - "fetched_at"
+  - "platform"
+  - "canonical_url"
+  - "archived"
+  - "primary_domain"
+  - "related_domains"
+  - "artifact_role"
+  - "source_role"
+  - "authority_level"
+  - "lifecycle_status"
+  - "artifact_kind"
+  - "acquisition"
+  - "revision_resolution"
+  - "provenance"
+  - "coverage"
+  - "target_runtimes"
+  - "discovery_context"
+
+properties:
+  schema:
+    const: "source/v1"
+  schema_version:
+    type: "string"
+    pattern: "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+  record_id:
+    type: "string"
+    pattern: "^sha256:[0-9a-f]{64}$"
+  created_at:
+    type: "string"
+    format: "date-time"
+  generator:
+    type: "string"
+    minLength: 1
+  generator_version:
+    type: "string"
+    minLength: 1
+  run_id:
+    type: "string"
+    minLength: 1
+  content_hash:
+    type: "string"
+    pattern: "^sha256:[0-9a-f]{64}$"
+  source_id:
+    type: "string"
+    pattern: "^(github:[^/]+/[^/]+|website:[a-zA-Z0-9._-]+(/[^ ]*)?|gitlab:[^/]+/[^/]+|dataset:[^ ]+|release:[^ ]+)$"
+  requested_ref:
+    type: "string"
+    minLength: 1
+  resolved_revision:
+    type: "string"
+    minLength: 1
+  resolved_commit:
+    type: "string"
+    minLength: 1
+  upstream_resolved_revision:
+    type: "string"
+  tree_sha:
+    type: "string"
+  commit_time:
+    type: "string"
+    format: "date-time"
+  fetched_at:
+    type: "string"
+    format: "date-time"
+  platform:
+    enum: ["github", "gitlab", "website", "dataset", "release", "unknown"]
+  canonical_url:
+    type: "string"
+    format: "uri"
+  license_spdx:
+    type: "string"
+  archived:
+    type: "boolean"
+  # ----- TAXONOMY CORRECTION 2026-06-20 -----
+  # primary_domain: intrinsic identity (what the repo fundamentally IS).
+  # related_domains: ecosystems it is useful in (drives Obsidian ecosystem coloring).
+  # artifact_role: what it provides (drives Obsidian core coloring when source_role=core).
+  primary_domain:
+    enum: ["hermes-agent", "n8n", "agentfield", "coding-agents", "training-systems",
+           "ai-content-generation", "memory-systems", "cross-domain",
+           "general-development", "unknown"]
+  related_domains:
+    type: "array"
+    items:
+      enum: ["hermes-agent", "n8n", "agentfield", "coding-agents", "training-systems",
+             "ai-content-generation", "memory-systems", "cross-domain",
+             "general-development"]
+  artifact_role:
+    enum: ["n8n-workflow", "agent-skill", "agent-soul", "agent-profile", "agent-prompt",
+           "agent-tool-definition", "plugin-definition", "executable-script",
+           "configuration", "deployment-definition", "supporting-resource",
+           "documentation", "reference", "agent-platform", "agent-platform-integration",
+           "agent-optimization", "agent-implementation", "example-agent",
+           "control-plane", "plugin-collection", "workflow-collection",
+           "workflow-catalog", "workflow-authoring-skills", "agent-skill-collection",
+           "skill-management-system", "memory-system", "multi-agent-orchestrator",
+           "agent-memory-system", "training-integration", "ai-content-pipeline",
+           "deployment-package", "deployment-template", "dataset", "unknown"]
+  source_role:
+    enum: ["core", "official-extension", "community-extension", "integration",
+           "reference", "mirror", "fork", "dataset", "example-collection",
+           "deployment", "unknown"]
+  authority_level:
+    enum: ["canonical-upstream", "official", "maintainer", "community", "third-party", "unknown"]
+  lifecycle_status:
+    enum: ["active", "experimental", "deprecated", "archived", "unmaintained", "unknown"]
+  target_runtimes:
+    type: "array"
+    items:
+      enum: ["hermes-agent", "n8n", "agentfield", "claude-code", "openai-codex", "generic", "unknown"]
+  discovery_context:
+    type: "object"
+    required: ["discovered_via"]
+    properties:
+      discovered_via: { type: "string" }
+      discovery_date: { type: "string", format: "date-time" }
+      notes: { type: "string" }
+  artifact_kind:
+    enum: ["repository", "documentation", "source-code", "workflow", "skill", "plugin",
+           "deployment", "website", "dataset", "unknown"]
+  language_policy:
+    type: "object"
+    required: ["primary", "allowed", "detection_method", "detection_min_confidence"]
+    properties:
+      primary: { type: "string" }
+      allowed: { type: "array", items: { type: "string" } }
+      detection_method: { type: "string" }
+      detection_min_confidence: { type: "number", minimum: 0.0, maximum: 1.0 }
+  acquisition:
+    type: "object"
+    required: ["status", "expected_files", "acquired_files", "failed_files", "excluded_files", "coverage_ratio", "failure_reasons", "last_attempt_at"]
+    properties:
+      status: { enum: ["complete", "partial", "failed", "blocked", "not-attempted"] }
+      expected_files: { type: "integer", minimum: 0 }
+      acquired_files: { type: "integer", minimum: 0 }
+      failed_files: { type: "integer", minimum: 0 }
+      excluded_files: { type: "integer", minimum: 0 }
+      coverage_ratio: { type: "number", minimum: 0.0, maximum: 1.0 }
+      failure_reasons: { type: "array" }
+      last_attempt_at: { type: "string", format: "date-time" }
+  revision_resolution:
+    type: "object"
+    required: ["status", "confidence"]
+    properties:
+      status: { enum: ["pinned", "unresolved", "failed", "not-attempted"] }
+      confidence: { enum: ["high", "medium", "low", "unknown"] }
+      requested_ref: { type: "string" }
+      resolved_commit: { type: "string" }
+      resolved_at: { type: "string", format: "date-time" }
+      notes: { type: "string" }
+  provenance:
+    type: "object"
+    required: ["confidence"]
+    properties:
+      confidence: { enum: ["high", "medium", "low", "unknown"] }
+      discovered_url: { type: "string" }
+      discovered_at: { type: "string", format: "date-time" }
+      notes: { type: "string" }
+  coverage:
+    type: "object"
+    required: ["status", "expected_files", "acquired_files", "coverage_ratio"]
+    properties:
+      status: { enum: ["complete", "partial", "sampled", "unknown"] }
+      expected_files: { type: "integer", minimum: 0 }
+      acquired_files: { type: "integer", minimum: 0 }
+      coverage_ratio: { type: "number", minimum: 0.0, maximum: 1.0 }
+      notes: { type: "string" }
+  # ----- Embedded typed relations -----
+  relations:
+    type: "array"
+    items:
+      type: "object"
+      required: ["relation", "target_source_id"]
+      properties:
+        relation:
+          enum: ["part-of", "extends", "integrates-with", "wraps", "deploys", "forks",
+                 "mirrors", "documents", "examples-for", "depends-on", "implements",
+                 "replaces", "supersedes", "duplicate-of", "variant-of", "derived-from", "references"]
+        target_source_id: { type: "string", minLength: 1 }
+        inferred_from:
+          enum: ["text-mining", "explicit-link", "heuristic", "manual"]
+        inference_confidence: { type: "number", minimum: 0.0, maximum: 1.0 }
+  contributing_dirs:
+    type: "array"
+    items: { type: "string" }
+  # ----- Obsidian cssclasses (DERIVED from primary_domain + source_role + related_domains) -----
+  # Per AGENTS.md v3.3 §17: "Ecosystem coloring should derive from related_domains, while
+  # core coloring derives from primary_domain + source_role: core."
+  cssclasses:
+    type: "array"
+    items: { type: "string" }
+
+additionalProperties: true

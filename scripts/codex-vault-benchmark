@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+# codex-vault-benchmark — run the retrieval benchmark (FTS / vector / hybrid)
+#
+# Usage:
+#   codex-vault-benchmark --vault-root /path/to/codex-vault
+#   codex-vault-benchmark --vault-root /path/to/codex-vault --quick
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PKG_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+if [[ -d "$PKG_ROOT/src" ]]; then
+  export PYTHONPATH="$PKG_ROOT/src${PYTHONPATH:+:$PYTHONPATH}"
+fi
+
+exec python3 -m codex_vault_pipeline.cli benchmark "$@"

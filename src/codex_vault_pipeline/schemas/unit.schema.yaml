@@ -1,0 +1,78 @@
+$schema: "https://json-schema.org/draft/2020-12/schema"
+$id: "https://codex-vault.local/schemas/unit.schema.yaml"
+title: "Unit (Layer C)"
+description: "Layer C: a retrieval unit (section, code symbol, workflow, node, skill instruction, agent definition). One record per addressable unit."
+
+type: "object"
+required:
+  - "schema"
+  - "schema_version"
+  - "record_id"
+  - "created_at"
+  - "generator"
+  - "generator_version"
+  - "run_id"
+  - "content_hash"
+  - "source_record_ids"
+  - "parser_name"
+  - "parser_version"
+  - "unit_id"
+  - "artifact_id"
+  - "source_anchor"
+  - "unit_type"
+  - "title"
+  - "semantic_text"
+  - "token_count"
+  - "fingerprints"
+
+properties:
+  schema:
+    const: "unit/v1"
+  schema_version: { type: "string" }
+  record_id: { type: "string", pattern: "^sha256:[0-9a-f]{64}$" }
+  created_at: { type: "string", format: "date-time" }
+  generator: { type: "string" }
+  generator_version: { type: "string" }
+  run_id: { type: "string" }
+  content_hash: { type: "string", pattern: "^sha256:[0-9a-f]{64}$" }
+  source_record_ids:
+    type: "array"
+    minItems: 1
+    items: { type: "string", minLength: 1 }
+  parser_name: { type: "string" }
+  parser_version: { type: "string" }
+  unit_id:
+    type: "string"
+    # sha256:<artifact>#<anchor> — never path-only
+    pattern: "^sha256:[0-9a-f]{64}#[^ ]+$"
+  artifact_id:
+    type: "string"
+    pattern: "^sha256:[0-9a-f]{64}$"
+  source_anchor:
+    type: "object"
+    properties:
+      json_pointer: { type: "string" }
+      line_start: { type: "integer", minimum: 1 }
+      line_end: { type: "integer", minimum: 1 }
+      section: { type: "string" }
+  unit_type:
+    enum: ["n8n-workflow", "n8n-node", "doc-section", "code-symbol", "hermes-skill",
+           "hermes-tool", "hermes-provider", "hermes-profile", "agentfield-agent",
+           "agentfield-service", "agentfield-control-plane", "deployment-component"]
+  title: { type: "string", minLength: 1 }
+  semantic_text: { type: "string" }
+  token_count: { type: "integer", minimum: 0 }
+  fingerprints:
+    type: "object"
+    required: ["content_sha256", "normalized_hash", "structural_hash", "semantic_signature"]
+    properties:
+      content_sha256: { type: "string", pattern: "^[0-9a-f]{64}$" }
+      normalized_hash: { type: "string", pattern: "^[0-9a-f]{64}$" }
+      structural_hash: { type: "string", pattern: "^[0-9a-f]{64}$" }
+      semantic_signature: { type: "string" }
+  duplicate_of: { type: ["string", "null"] }
+  variant_of: { type: ["string", "null"] }
+  derived_from: { type: ["string", "null"] }
+  dedup_group: { type: ["string", "null"] }
+
+additionalProperties: true

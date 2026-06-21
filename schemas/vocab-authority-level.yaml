@@ -1,0 +1,21 @@
+# Codex Vault control vocabulary: authority_level
+# Per AGENTS.md v3.2 §6 — Closed list.
+schema: "control-vocabulary/v1"
+schema_version: "1.0.0"
+vocab_name: "authority_level"
+vocab_version: "1.0.0"
+description: "How authoritative the source is for the claims it makes."
+allowed:
+  - "canonical-upstream"
+  - "official"
+  - "maintainer"
+  - "community"
+  - "third-party"
+  - "unknown"
+notes: |
+  - "canonical-upstream": The original authoritative source. Treat as ground truth when complete.
+  - "official": Published by the upstream organization but not the canonical source.
+  - "maintainer": Written or maintained by a known maintainer of the underlying project.
+  - "community": Community-produced and reviewed only by community peers.
+  - "third-party": Independent and not affiliated with the upstream.
+  - "unknown": Authority has not been assessed yet.

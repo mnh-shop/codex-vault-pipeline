@@ -1,0 +1,113 @@
+$schema: "https://json-schema.org/draft/2020-12/schema"
+$id: "https://codex-vault.local/schemas/bundle.schema.yaml"
+title: "Bundle (Layer B — bundle manifest)"
+description: "Per AGENTS.md v3.3 §8 + user correction 2026-06-20: bundle manifests are a dedicated typed record, NOT ordinary artifact/v1. A bundle is a complete skill/SOUL package: an entrypoint file + companion files + their relationships. Bundle files are still Layer B artifacts (they each have their own artifact/v1 record); the bundle record is the manifest that links them. Recursive: a nested SKILL.md (or soul.md) inside a bundle directory starts a NEW bundle."
+
+type: "object"
+required:
+  - "schema"
+  - "schema_version"
+  - "record_id"
+  - "created_at"
+  - "generator"
+  - "generator_version"
+  - "run_id"
+  - "content_hash"
+  - "bundle_id"
+  - "source_id"
+  - "source_path"
+  - "entrypoint"
+  - "bundle_role"
+  - "artifact_role"
+  - "members"
+  - "manifest_hash"
+
+properties:
+  schema:
+    const: "bundle/v1"
+  schema_version:
+    type: "string"
+  record_id:
+    type: "string"
+    pattern: "^sha256:[0-9a-f]{64}$"
+  created_at:
+    type: "string"
+    format: "date-time"
+  generator: { type: "string" }
+  generator_version: { type: "string" }
+  run_id: { type: "string" }
+  content_hash:
+    type: "string"
+    pattern: "^sha256:[0-9a-f]{64}$"
+  bundle_id:
+    type: "string"
+    # sha256:<hash of (sorted members + their sha256 + bundle_role)>
+    pattern: "^sha256:[0-9a-f]{64}$"
+  source_id: { type: "string" }
+  source_path: { type: "string" }
+  entrypoint:
+    type: "string"
+    description: "Filename of the bundle entrypoint (e.g., SKILL.md, SOUL.md, skill.md, soul.md)."
+  bundle_role:
+    enum: ["entrypoint", "script", "reference", "template", "example", "asset", "config", "supporting", "unknown"]
+  artifact_role:
+    enum: ["agent-skill", "agent-soul", "agent-platform", "agent-platform-integration",
+           "agent-optimization", "agent-implementation", "example-agent",
+           "control-plane", "plugin-collection", "workflow-collection",
+           "workflow-catalog", "workflow-authoring-skills", "agent-skill-collection",
+           "skill-management-system", "memory-system", "multi-agent-orchestrator",
+           "agent-memory-system", "training-integration", "ai-content-pipeline",
+           "deployment-package", "deployment-template"]
+  members:
+    type: "array"
+    description: "Files included in this bundle. Each member has its own artifact/v1 record (referenced by content_sha256) and 1+ occurrence records (referenced by occurrence_id)."
+    items:
+      type: "object"
+      required: ["path", "content_sha256", "bundle_role", "occurrence_id"]
+      properties:
+        path: { type: "string" }
+        content_sha256:
+          type: "string"
+          pattern: "^[0-9a-f]{64}$"
+        bundle_role: { type: "string" }
+        occurrence_id:
+          type: "string"
+          pattern: "^sha256:[0-9a-f]{64}$"
+        size_bytes: { type: "integer", minimum: 0 }
+  manifest_hash:
+    type: "string"
+    description: "sha256 of the canonical JSON of (sorted members list). Used to detect bundle changes."
+    pattern: "^[0-9a-f]{64}$"
+  nested_entrypoints:
+    type: "array"
+    items: { type: "string" }
+    description: "Paths to SKILL.md / SOUL.md inside this bundle that start their own sub-bundles. Empty array if no nesting."
+  preservation_mode:
+    enum: ["exact-bytes", "exact-bundle", "derived"]
+  execution_relevance:
+    enum: ["executable-import", "behavior-definition", "runtime-configuration",
+           "supporting-resource", "documentation-only"]
+  parse_status:
+    enum: ["valid", "invalid", "unparsed", "empty"]
+  parse_errors: { type: "array" }
+  security_scan:
+    type: "object"
+    properties:
+      status: { enum: ["clean", "flagged", "blocked", "not-scanned"] }
+      worst_member_status: { enum: ["clean", "flagged", "blocked", "not-scanned"] }
+      flagged_member_count: { type: "integer", minimum: 0 }
+      blocked_member_count: { type: "integer", minimum: 0 }
+      detector: { type: "string" }
+      detector_version: { type: "string" }
+  index_policy:
+    enum: ["include", "exclude"]
+    description: "If any member is blocked, the bundle is excluded from indexes (per AGENTS.md §11)."
+  preservation_policy:
+    const: "retain"
+  size_bytes_total:
+    type: "integer"
+    minimum: 0
+  contributing_top_dir:
+    type: "string"
+
+additionalProperties: true

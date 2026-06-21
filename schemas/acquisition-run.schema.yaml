@@ -1,0 +1,66 @@
+$schema: "https://json-schema.org/draft/2020-12/schema"
+$id: "https://codex-vault.local/schemas/acquisition-run.schema.yaml"
+title: "Acquisition Run"
+description: "Reconciliation record for an acquisition attempt against one source."
+
+type: "object"
+required:
+  - "schema"
+  - "schema_version"
+  - "record_id"
+  - "created_at"
+  - "generator"
+  - "generator_version"
+  - "run_id"
+  - "content_hash"
+  - "run_id"
+  - "started_at"
+  - "completed_at"
+  - "source_id"
+  - "requested_ref"
+  - "resolved_commit"
+  - "expected_artifacts"
+  - "acquired_artifacts"
+  - "excluded_artifacts"
+  - "failed_artifacts"
+  - "coverage_ratio"
+  - "status"
+  - "error_summary"
+  - "tool_versions"
+
+properties:
+  schema:
+    const: "acquisition-run/v1"
+  schema_version: { type: "string" }
+  record_id: { type: "string", pattern: "^sha256:[0-9a-f]{64}$" }
+  created_at: { type: "string", format: "date-time" }
+  generator: { type: "string" }
+  generator_version: { type: "string" }
+  run_id: { type: "string" }
+  content_hash: { type: "string", pattern: "^sha256:[0-9a-f]{64}$" }
+  started_at: { type: "string", format: "date-time" }
+  completed_at: { type: "string", format: "date-time" }
+  source_id: { type: "string" }
+  requested_ref: { type: "string" }
+  resolved_commit: { type: "string" }
+  tree_sha: { type: "string" }
+  expected_artifacts:
+    type: "object"
+  acquired_artifacts:
+    type: "object"
+  excluded_artifacts:
+    type: "object"
+  failed_artifacts:
+    type: "object"
+  coverage_ratio:
+    type: "number"
+    minimum: 0.0
+    maximum: 1.0
+  status:
+    enum: ["complete", "partial", "failed", "blocked", "not-attempted"]
+  error_summary:
+    type: "array"
+  tool_versions:
+    type: "object"
+
+additionalProperties: true

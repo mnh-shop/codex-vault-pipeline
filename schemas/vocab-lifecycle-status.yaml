@@ -1,0 +1,21 @@
+# Codex Vault control vocabulary: lifecycle_status
+# Per AGENTS.md v3.2 §6 — Closed list.
+schema: "control-vocabulary/v1"
+schema_version: "1.0.0"
+vocab_name: "lifecycle_status"
+vocab_version: "1.0.0"
+description: "Maintenance / deprecation state of a record, source, or note."
+allowed:
+  - "active"
+  - "experimental"
+  - "deprecated"
+  - "archived"
+  - "unmaintained"
+  - "unknown"
+notes: |
+  - "active": Currently maintained and recommended for use.
+  - "experimental": Subject to change without notice.
+  - "deprecated": Still usable but slated for removal; prefer newer alternative.
+  - "archived": Frozen and no longer updated; kept for reference.
+  - "unmaintained": No active maintainer; use at your own risk.
+  - "unknown": Status not yet determined.

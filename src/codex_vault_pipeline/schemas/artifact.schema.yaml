@@ -1,0 +1,112 @@
+$schema: "https://json-schema.org/draft/2020-12/schema"
+$id: "https://codex-vault.local/schemas/artifact.schema.yaml"
+title: "Artifact (Layer B — content)"
+description: "Per-content artifact record. Keyed by content sha256. Same content (same sha256) collapses to one record. Per the Phase 3 correction, per-(source_id, source_path) provenance lives in artifact-occurrence/v1, not here. This record describes the content itself: its media type, parse state, security scan."
+
+type: "object"
+required:
+  - "schema"
+  - "schema_version"
+  - "record_id"
+  - "created_at"
+  - "generator"
+  - "generator_version"
+  - "run_id"
+  - "content_hash"
+  - "artifact_id"
+  - "media_type"
+  - "size_bytes"
+  - "encoding"
+  - "artifact_role"
+  - "preservation_mode"
+  - "execution_relevance"
+  - "parse_status"
+  - "index_policy"
+  - "preservation_policy"
+  - "security_scan"
+  - "occurrence_count"
+
+properties:
+  schema:
+    const: "artifact/v1"
+  schema_version:
+    type: "string"
+  record_id:
+    type: "string"
+    pattern: "^sha256:[0-9a-f]{64}$"
+  created_at:
+    type: "string"
+    format: "date-time"
+  generator: { type: "string" }
+  generator_version: { type: "string" }
+  run_id: { type: "string" }
+  content_hash:
+    type: "string"
+    pattern: "^sha256:[0-9a-f]{64}$"
+  artifact_id:
+    type: "string"
+    pattern: "^sha256:[0-9a-f]{64}$"
+  content_sha256:
+    type: "string"
+    pattern: "^[0-9a-f]{64}$"
+  # ----- Content properties (no per-source fields here) -----
+  media_type: { type: "string" }
+  size_bytes: { type: "integer", minimum: 0 }
+  encoding: { type: "string" }
+  detected_language: { type: "string" }
+  language_confidence: { type: "number", minimum: 0.0, maximum: 1.0 }
+  artifact_role:
+    enum: ["n8n-workflow", "agent-skill", "agent-soul", "agent-profile", "agent-prompt",
+           "agent-tool-definition", "plugin-definition", "executable-script",
+           "configuration", "deployment-definition", "supporting-resource",
+           "documentation", "reference", "agent-platform", "agent-platform-integration",
+           "agent-optimization", "agent-implementation", "example-agent",
+           "control-plane", "plugin-collection", "workflow-collection",
+           "workflow-catalog", "workflow-authoring-skills", "agent-skill-collection",
+           "skill-management-system", "memory-system", "multi-agent-orchestrator",
+           "agent-memory-system", "training-integration", "ai-content-pipeline",
+           "deployment-package", "deployment-template", "dataset",
+           "metadata", "unknown"]
+  preservation_mode:
+    enum: ["exact-bytes", "exact-bundle", "derived"]
+  execution_relevance:
+    enum: ["executable-import", "behavior-definition", "runtime-configuration",
+           "supporting-resource", "documentation-only"]
+  parse_status:
+    enum: ["valid", "invalid", "unparsed", "empty"]
+  parse_errors: { type: "array" }
+  # ----- Cross-reference to occurrences (read-only aggregate) -----
+  occurrence_count:
+    type: "integer"
+    minimum: 1
+    description: "How many (source_id, source_path) occurrences reference this content. ≥1; if 1, this content has a unique source; if >1, the content is duplicated across multiple sources."
+  occurrence_paths:
+    type: "array"
+    items: { type: "string" }
+    description: "Optional: list of source_paths that share this content. May be large; populated only when occurrence_count ≤ 10 for compact display."
+  # ----- Indexing / security / policy -----
+  index_policy:
+    enum: ["include", "exclude"]
+  preservation_policy:
+    const: "retain"
+  security_scan:
+    type: "object"
+    required: ["status", "detector", "detector_version", "finding_count", "redaction_required"]
+    properties:
+      status: { enum: ["clean", "flagged", "blocked", "not-scanned"] }
+      detector: { type: "string" }
+      detector_version: { type: "string" }
+      finding_count: { type: "integer", minimum: 0 }
+      finding_categories: { type: "array" }
+      redaction_required: { type: "boolean" }
+      quarantine_required: { type: "boolean" }
+      findings:
+        type: "array"
+        items:
+          type: "object"
+          properties:
+            category: { type: "string" }
+            line_number: { type: "integer", minimum: 0 }
+            match_preview: { type: "string" }
+
+additionalProperties: true

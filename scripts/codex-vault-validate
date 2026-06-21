@@ -1,0 +1,19 @@
+#!/usr/bin/env bash
+# codex-vault-validate — strict 20-rule validator against the vault's .runtime/
+#
+# Usage:
+#   codex-vault-validate --vault-root /path/to/codex-vault
+#   codex-vault-validate --vault-root /path/to/codex-vault --strict
+#   CODEX_VAULT_ROOT=/path/to/codex-vault codex-vault-validate
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PKG_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+# Allow the package to be importable from either the source tree
+# (development install) or an installed copy.
+if [[ -d "$PKG_ROOT/src" ]]; then
+  export PYTHONPATH="$PKG_ROOT/src${PYTHONPATH:+:$PYTHONPATH}"
+fi
+
+exec python3 -m codex_vault_pipeline.cli validate "$@"

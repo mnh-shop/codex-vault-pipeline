@@ -1,0 +1,50 @@
+# Codex Vault Pipeline — gitignore
+# This package contains code, schemas, docs, and tests only.
+# The vault's data lives in CODEX_VAULT_ROOT and is NEVER
+# checked in.
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.tox/
+.eggs/
+*.egg-info/
+dist/
+build/
+
+# Virtualenvs
+.venv/
+venv/
+env/
+.env
+
+# Editor / OS noise
+.DS_Store
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# --- Vault runtime data (must never be committed) ---
+# These are listed per the user's spec; they are also the
+# standard ignore list for any Codex Vault tooling.
+.runtime/
+raw/
+data/
+backup-*/
+*.db
+*.sqlite
+*.sqlite3
+*.lance/
+
+# Optional local/editor state
+.obsidian/workspace*

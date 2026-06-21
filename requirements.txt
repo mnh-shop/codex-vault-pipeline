@@ -1,0 +1,20 @@
+# Core runtime dependencies for codex-vault-pipeline.
+# Pinned to the lowest versions that pass the smoke test.
+
+PyYAML>=6.0
+detect-secrets>=1.5.0
+jsonschema>=4.0
+
+# Vector index + embedding (optional; install with
+#   pip install -e ".[vector]"
+# when you need LanceDB-backed semantic search).
+# lancedb>=0.5
+# numpy>=1.24
+# sentence-transformers>=2.2
+# torch>=2.0
+
+# Test support (optional; install with
+#   pip install -e ".[test]"
+# ).
+# pytest>=7.0
+# pytest-cov>=4.0

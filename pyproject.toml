@@ -1,0 +1,93 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "codex-vault-pipeline"
+version = "0.1.0"
+description = "Standalone ingestion/indexing/validation engine for the Codex Vault"
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "Proprietary" }
+authors = [{ name = "Codex Vault contributors" }]
+keywords = ["codex-vault", "ingestion", "validation", "retrieval"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Libraries",
+    "Topic :: Text Processing :: Indexing",
+]
+
+# Runtime dependencies. The strict validator and the legacy
+# scripts are the only consumers; we pin only what is actually
+# imported.
+dependencies = [
+    "PyYAML>=6.0",
+    "detect-secrets>=1.5.0",
+    "jsonschema>=4.0",
+]
+
+[project.optional-dependencies]
+# Vector index + embedding support. Skipped by --no-vector
+# when not installed.
+vector = [
+    "lancedb>=0.5",
+    "numpy>=1.24",
+    "sentence-transformers>=2.2",
+    "torch>=2.0",
+]
+# Test support.
+test = [
+    "pytest>=7.0",
+    "pytest-cov>=4.0",
+]
+# Development support.
+dev = [
+    "ruff>=0.1",
+    "mypy>=1.0",
+    "types-PyYAML",
+]
+
+[project.scripts]
+codex-vault-validate = "codex_vault_pipeline.cli:main"
+codex-vault-ingest = "codex_vault_pipeline.cli:main"
+codex-vault-build-indexes = "codex_vault_pipeline.cli:main"
+codex-vault-benchmark = "codex_vault_pipeline.cli:main"
+
+# Console-script entrypoints with the right subcommand. The
+# single `main` function dispatches based on argv[0] or the
+# first positional argument. The legacy entrypoint shims in
+# scripts/ are preferred for the documented UX, but the
+# console_scripts here are the canonical pip-install entry.
+
+[project.urls]
+"Source" = "https://github.com/mnh-shop/codex-vault-pipeline"
+"Vault" = "https://github.com/mnh-shop/codex-vault"
+
+[tool.setuptools]
+package-dir = { "" = "src" }
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+"codex_vault_pipeline" = ["schemas/*.yaml", "legacy/*.py"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py39"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "W"]
+ignore = ["E501"]  # line length handled by formatter
+
+[tool.mypy]
+python_version = "3.9"
+ignore_missing_imports = true
+warn_unused_ignores = true
+strict_optional = true

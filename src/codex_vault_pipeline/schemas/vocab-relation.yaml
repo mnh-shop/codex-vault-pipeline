@@ -1,0 +1,27 @@
+# Codex Vault control vocabulary: relation (typed edges)
+# Per AGENTS.md v3.2 §6 — Closed list.
+schema: "control-vocabulary/v1"
+schema_version: "1.0.0"
+vocab_name: "relation"
+vocab_version: "1.0.0"
+description: "Closed list of typed relations between sources, artifacts, units, domain records, and knowledge notes."
+allowed:
+  - "part-of"
+  - "extends"
+  - "integrates-with"
+  - "wraps"
+  - "deploys"
+  - "forks"
+  - "mirrors"
+  - "documents"
+  - "examples-for"
+  - "depends-on"
+  - "implements"
+  - "replaces"
+  - "supersedes"
+  - "duplicate-of"
+  - "variant-of"
+  - "derived-from"
+  - "references"
+notes: |
+  Directed edges. Use only these values for `relation:` in source, relation, and knowledge-note records.

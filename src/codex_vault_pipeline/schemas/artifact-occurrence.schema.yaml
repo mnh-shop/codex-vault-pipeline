@@ -1,0 +1,88 @@
+$schema: "https://json-schema.org/draft/2020-12/schema"
+$id: "https://codex-vault.local/schemas/artifact-occurrence.schema.yaml"
+title: "Artifact Occurrence (Layer B — per source)"
+description: "Per-(source_id, source_path) occurrence of an artifact. Links to its content via content_sha256. Per the user's Phase 3 correction: every unique source_id+source_path is a separately addressable occurrence, even when content sha256 is shared with another occurrence. Same content may appear under multiple (source_id, source_path) keys; each occurrence is preserved separately with its own provenance."
+
+type: "object"
+required:
+  - "schema"
+  - "schema_version"
+  - "record_id"
+  - "created_at"
+  - "generator"
+  - "generator_version"
+  - "run_id"
+  - "content_hash"
+  - "occurrence_id"
+  - "source_id"
+  - "source_path"
+  - "content_sha256"
+  - "ingestion"
+
+properties:
+  schema:
+    const: "artifact-occurrence/v1"
+  schema_version:
+    type: "string"
+    pattern: "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+  record_id:
+    type: "string"
+    pattern: "^sha256:[0-9a-f]{64}$"
+  created_at:
+    type: "string"
+    format: "date-time"
+  generator:
+    type: "string"
+  generator_version:
+    type: "string"
+  run_id:
+    type: "string"
+  content_hash:
+    type: "string"
+    pattern: "^sha256:[0-9a-f]{64}$"
+  occurrence_id:
+    type: "string"
+    # sha256:<sha-of-(source_id+"|"+source_path)>
+    pattern: "^sha256:[0-9a-f]{64}$"
+  source_id:
+    type: "string"
+    minLength: 1
+  source_path:
+    type: "string"
+    minLength: 1
+  content_sha256:
+    type: "string"
+    pattern: "^[0-9a-f]{64}$"
+  ingestion:
+    type: "object"
+    required: ["ingested_at", "ingested_by"]
+    properties:
+      ingested_at: { type: "string", format: "date-time" }
+      ingested_by: { type: "string" }
+      generator_version: { type: "string" }
+      tool_versions:
+        type: "object"
+  provenance:
+    type: "object"
+    properties:
+      first_seen_at: { type: "string", format: "date-time" }
+      first_seen_in_manifest: { type: "string" }
+      manifest_tree_sha256: { type: "string" }
+  bundle:
+    type: "object"
+    properties:
+      bundle_id: { type: "string" }
+      bundle_role:
+        enum: ["entrypoint", "script", "reference", "template", "example", "asset",
+               "config", "supporting", "unknown"]
+      entrypoint: { type: "boolean" }
+  contributing_top_dir:
+    type: "string"
+  contributing_sub_dir:
+    type: "string"
+  index_policy:
+    enum: ["include", "exclude"]
+  preservation_policy:
+    const: "retain"
+
+additionalProperties: true

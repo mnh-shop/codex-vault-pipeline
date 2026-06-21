@@ -1,0 +1,49 @@
+$schema: "https://json-schema.org/draft/2020-12/schema"
+$id: "https://codex-vault.local/schemas/relation.schema.yaml"
+title: "Relation"
+description: "Typed edge between records (sources, artifacts, units, knowledge notes)."
+
+type: "object"
+required:
+  - "schema"
+  - "schema_version"
+  - "record_id"
+  - "created_at"
+  - "generator"
+  - "generator_version"
+  - "run_id"
+  - "content_hash"
+  - "from_id"
+  - "from_type"
+  - "relation"
+  - "to_id"
+  - "to_type"
+  - "inferred_from"
+  - "inference_confidence"
+
+properties:
+  schema:
+    const: "relation/v1"
+  schema_version: { type: "string" }
+  record_id: { type: "string", pattern: "^sha256:[0-9a-f]{64}$" }
+  created_at: { type: "string", format: "date-time" }
+  generator: { type: "string" }
+  generator_version: { type: "string" }
+  run_id: { type: "string" }
+  content_hash: { type: "string", pattern: "^sha256:[0-9a-f]{64}$" }
+  from_id: { type: "string", minLength: 1 }
+  from_type:
+    enum: ["source", "artifact", "unit", "domain-record", "knowledge-note"]
+  relation:
+    enum: ["part-of", "extends", "integrates-with", "wraps", "deploys", "forks",
+           "mirrors", "documents", "examples-for", "depends-on", "implements",
+           "replaces", "supersedes", "duplicate-of", "variant-of", "derived-from", "references"]
+  to_id: { type: "string", minLength: 1 }
+  to_type:
+    enum: ["source", "artifact", "unit", "domain-record", "knowledge-note"]
+  inferred_from:
+    enum: ["text-mining", "explicit-link", "heuristic", "manual"]
+  inference_confidence: { type: "number", minimum: 0.0, maximum: 1.0 }
+  context_quote: { type: "string" }
+
+additionalProperties: true

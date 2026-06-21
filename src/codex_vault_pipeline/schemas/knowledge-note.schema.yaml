@@ -1,0 +1,143 @@
+$schema: "https://json-schema.org/draft/2020-12/schema"
+$id: "https://codex-vault.local/schemas/knowledge-note.schema.yaml"
+title: "Knowledge Note (Layer E)"
+description: "Layer E: a human-readable synthesis (wiki article). Must declare scope, evidence, and a non-canonical knowledge_status unless fully evidenced."
+
+type: "object"
+required:
+  - "schema"
+  - "schema_version"
+  - "record_id"
+  - "title"
+  - "slug"
+  - "domain_family"
+  - "knowledge_status"
+  - "scope"
+  - "summary"
+  - "source_record_ids"
+  - "evidence"
+  - "created_at"
+  - "last_verified_at"
+  - "generator"
+  - "generator_version"
+  - "run_id"
+  - "content_hash"
+
+properties:
+  schema:
+    const: "knowledge-note/v1"
+  schema_version: { type: "string" }
+  record_id: { type: "string", pattern: "^sha256:[0-9a-f]{64}$" }
+  title: { type: "string", minLength: 1 }
+  slug: { type: "string", pattern: "^[a-z0-9][a-z0-9-]*$" }
+  domain_family:
+    # Minimal addition: "coding-agents" was already a valid value in the source-level
+    # `primary_domain` controlled vocab (see vocab-primary-domain.yaml). The
+    # knowledge-note enum is now aligned with the source vocab for the subset
+    # that exists in candidate notes. Additions are additive only — no existing
+    # value was removed or renamed. See incremental-ingest-docsgpt-deep-searcher-fix-pass.md
+    # (F-2) for the change rationale.
+    enum: ["hermes-agent", "n8n", "agentfield", "coding-agents", "cross-domain", "general-development", "unknown"]
+  knowledge_status:
+    enum: ["candidate", "canonical", "superseded"]
+  scope:
+    type: "object"
+    required: ["covers", "excludes"]
+    properties:
+      covers: { type: "string", minLength: 1 }
+      excludes: { type: "string" }
+  summary: { type: "string", minLength: 1 }
+  source_record_ids:
+    type: "array"
+    items: { type: "string", minLength: 1 }
+  evidence:
+    type: "array"
+    items:
+      type: "object"
+      required: ["source_id", "artifact_id", "unit_id", "anchor", "relation"]
+      properties:
+        source_id: { type: "string" }
+        artifact_id: { type: "string" }
+        unit_id: { type: "string" }
+        anchor: { type: "string" }
+        relation:
+          enum: ["part-of", "extends", "integrates-with", "wraps", "deploys", "forks",
+                 "mirrors", "documents", "examples-for", "depends-on", "implements",
+                 "replaces", "supersedes", "duplicate-of", "variant-of", "derived-from", "references"]
+  created_at: { type: "string", format: "date-time" }
+  last_verified_at: { type: "string", format: "date-time" }
+  generator: { type: "string" }
+  generator_version: { type: "string" }
+  run_id: { type: "string" }
+  content_hash: { type: "string", pattern: "^sha256:[0-9a-f]{64}$" }
+  source_role:
+    enum: ["core", "official-extension", "community-extension", "integration", "reference",
+           "mirror", "fork", "dataset", "example-collection", "deployment", "unknown"]
+  authority_level:
+    enum: ["canonical-upstream", "official", "maintainer", "community", "third-party", "unknown"]
+  duplicate_resolution: { type: ["string", "null"], enum: ["preferred", "duplicate", "variant", null] }
+  lifecycle_status:
+    enum: ["active", "experimental", "deprecated", "archived", "unmaintained", "unknown"]
+  cssclasses:
+    type: "array"
+    items: { type: "string" }
+  relations:
+    type: "array"
+    items:
+      type: "object"
+      required: ["relation", "target_record_id"]
+      properties:
+        relation: { type: "string" }
+        target_record_id: { type: "string" }
+  supersedes: { type: ["string", "null"] }
+  # legacy v2 fields (optional, tolerated)
+  source_type: { type: "string" }
+  topic: { type: "string" }
+  topic_cluster: { type: "string" }
+  upstream_repo: { type: "string" }
+  tags: { type: "array", items: { type: "string" } }
+  source_paths: { type: "array", items: { type: "string" } }
+  source_count: { type: "integer", minimum: 0 }
+  coverage_ratio: { type: "number", minimum: 0.0, maximum: 1.0 }
+  coverage_status: { enum: ["complete", "partial", "sampled", "unknown"] }
+  # Source taxonomy: per-source Layer A primary_domain, source_role,
+  # authority_level, and related_domains. Added in Phase 6 schema correction
+  # to make the source taxonomy machine-readable in every candidate, not only
+  # in body_markdown. See vocab-primary-domain.yaml for the controlled
+  # vocabulary of primary_domain values. Single-source candidates have one
+  # entry; multi-source candidates have one entry per Layer A source.
+  source_taxonomy:
+    type: "array"
+    items:
+      type: "object"
+      required:
+        - "source_id"
+        - "primary_domain"
+        - "source_role"
+        - "authority_level"
+      properties:
+        source_id:
+          type: "string"
+          minLength: 1
+        primary_domain:
+          type: "string"
+          minLength: 1
+        related_domains:
+          type: "array"
+          items: { type: "string" }
+        source_role:
+          type: "string"
+        authority_level:
+          type: "string"
+  acquisition:
+    type: "object"
+    properties:
+      status: { enum: ["complete", "partial", "failed", "blocked", "not-attempted"] }
+      expected_files: { type: "integer", minimum: 0 }
+      acquired_files: { type: "integer", minimum: 0 }
+      failed_files: { type: "integer", minimum: 0 }
+      excluded_files: { type: "integer", minimum: 0 }
+      coverage_ratio: { type: "number", minimum: 0.0, maximum: 1.0 }
+  canonical: { type: "boolean" }
+
+additionalProperties: true

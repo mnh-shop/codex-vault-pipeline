@@ -1,0 +1,15 @@
+# Codex Vault control vocabulary: knowledge_status
+# Per AGENTS.md v3.2 §6 — Closed list.
+schema: "control-vocabulary/v1"
+schema_version: "1.0.0"
+vocab_name: "knowledge_status"
+vocab_version: "1.0.0"
+description: "Lifecycle state of a knowledge note's claim to truth."
+allowed:
+  - "candidate"
+  - "canonical"
+  - "superseded"
+notes: |
+  - "candidate": A new note that has not yet been promoted. Default for newly generated notes.
+  - "canonical": Promoted only after passing all quality gates. Requires resolved evidence and honest scope.
+  - "superseded": Replaced by another note (see `supersedes` / `superseded_by` relations).
