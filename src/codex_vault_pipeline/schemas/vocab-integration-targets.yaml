@@ -8,11 +8,12 @@
 schema: "control-vocabulary/v1"
 schema_version: "1.0.0"
 vocab_name: "integration_targets"
-vocab_version: "1.0.0"
+vocab_version: "1.1.0"
 description: |
   Concrete APIs, databases, tools, protocols, services, or
   platforms the repo connects to. More concrete than
-  `ecosystems` (runtimes) and `capabilities` (abilities).
+  `ecosystems` (runtimes) and more concrete than
+  `capabilities` (abilities).
 allowed:
   # ----- Code / source control -----
   - "github"
@@ -22,22 +23,44 @@ allowed:
   - "brave-search"
   - "tavily"
   - "firecrawl"
+  - "arxiv"           # arXiv preprint server (deep-research ingest)
+  - "duckduckgo"      # DuckDuckGo search (langchain-ai/open_deep_research)
+  - "exa"             # Exa (Metaphor) search API (langchain-ai/open_deep_research)
+  - "linkup"          # Linkup search API (langchain-ai/open_deep_research)
+  - "azure-search"    # Azure AI Search (langchain-ai/open_deep_research)
   # ----- Browser automation -----
   - "playwright"
   - "selenium"
-  # ----- Messaging -----
+  - "camoufox"        # stealth-firefox fork (gs-ai/SYNINT)
+  # ----- Messaging (consumer + enterprise IM) -----
   - "telegram"
   - "discord"
   - "slack"
   - "gmail"
+  - "lark"            # Lark / Feishu IM (bytedance/deer-flow)
+  - "dingtalk"        # DingTalk IM (bytedance/deer-flow)
+  - "wecom"           # WeCom / 企业微信 (bytedance/deer-flow)
   # ----- Threat intel / OSINT -----
   - "shodan"
   - "censys"
   - "virustotal"
+  - "scrapy"          # Scrapy spider framework (gs-ai/SYNINT)
+  - "scrapling"       # Scrapling (gs-ai/SYNINT)
+  - "waymore"         # waymore results aggregator (gs-ai/SYNINT)
   # ----- Vector / graph databases -----
   - "milvus"
   - "postgres"
   - "neo4j"
+  # ----- Aliyun / Tongyi stack (Alibaba-NLP/DeepResearch) -----
+  - "aliyun-bailian"  # Alibaba Cloud Bailian model-serving platform
+  - "dashscope"       # Alibaba DashScope SDK (Tongyi model serving)
+  - "aliyun-oss"      # Alibaba Cloud Object Storage Service
+  # ----- Document / media extraction (gs-ai/SYNINT) -----
+  - "pypdf"           # PDF text extraction
+  - "python-docx"     # Word document extraction
+  - "pillow"          # image I/O
+  - "pytesseract"     # Tesseract OCR wrapper
+  - "opencv"          # OpenCV image / video processing
 notes: |
   - "github": GitHub REST/GraphQL API.
   - "google-search": Google Custom Search JSON API.
@@ -45,20 +68,51 @@ notes: |
   - "brave-search": Brave Search API.
   - "tavily": Tavily search API (research-focused).
   - "firecrawl": Firecrawl scrape-and-extract API.
+  - "arxiv": arXiv preprint server (used by deep-research repos).
+  - "duckduckgo": DuckDuckGo instant-answer / search API.
+  - "exa": Exa (formerly Metaphor) neural search API.
+  - "linkup": Linkup web-search API.
+  - "azure-search": Azure AI Search (Cognitive Search).
   - "playwright": Playwright browser-automation library.
   - "selenium": Selenium WebDriver.
+  - "camoufox": stealth-firefox fork used by OSINT collectors
+    to avoid fingerprinting / bot detection.
   - "telegram": Telegram Bot API.
   - "discord": Discord bot / webhooks.
   - "slack": Slack API.
   - "gmail": Gmail API.
+  - "lark": Lark / Feishu (字节系) enterprise IM.
+  - "dingtalk": DingTalk (Alibaba) enterprise IM.
+  - "wecom": WeCom / 企业微信 (Tencent) enterprise IM.
   - "shodan": Shodan host-intel API.
   - "censys": Censys host-intel API.
   - "virustotal": VirusTotal file/URL intel API.
+  - "scrapy": Scrapy spider framework.
+  - "scrapling": Scrapling scraping utility.
+  - "waymore": waymore results aggregator (Wayback, CommonCrawl,
+    AlienVault OTX, etc.).
   - "milvus": Milvus vector database.
   - "postgres": PostgreSQL.
   - "neo4j": Neo4j graph database.
+  - "aliyun-bailian": Alibaba Cloud Bailian (model serving + agent
+    marketplace).
+  - "dashscope": Alibaba DashScope SDK (Tongyi-family LLM serving).
+  - "aliyun-oss": Alibaba Cloud Object Storage Service.
+  - "pypdf": pure-Python PDF text extraction.
+  - "python-docx": Word (.docx) document extraction.
+  - "pillow": Python Imaging Library fork.
+  - "pytesseract": Tesseract OCR Python wrapper.
+  - "opencv": OpenCV image / video processing.
 
   Distinction from `ecosystems`:
   - `ecosystems` is the runtime (e.g. `mcp`, `hermes-agent`).
   - `integration_targets` is the specific external service
     (e.g. `github`, `telegram`).
+
+  Versioning:
+  - 1.0.0 (2026-06-21) — initial 18 values.
+  - 1.1.0 (2026-06-21) — added 19 values for the deep-research /
+    OSINT ingest track: arxiv, duckduckgo, exa, linkup,
+    azure-search, camoufox, lark, dingtalk, wecom, scrapy,
+    scrapling, waymore, aliyun-bailian, dashscope, aliyun-oss,
+    pypdf, python-docx, pillow, pytesseract, opencv.

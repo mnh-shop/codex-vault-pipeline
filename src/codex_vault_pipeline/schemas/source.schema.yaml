@@ -213,6 +213,14 @@ properties:
       notes:
         type: "array"
         items: { type: "string" }
+  # ----- artifact_role: 2026-06-21 minimal extension -----
+  # Added `source-catalog` for curated lists of external tools,
+  # resources, or references (e.g. jivoi/awesome-osint,
+  # lockfale/osint-framework). The existing `reference` value
+  # covers single-reference documents; `source-catalog` is for
+  # multi-source curated lists. Other existing values such as
+  # `workflow-catalog` and `plugin-collection` are too specific
+  # to a particular resource type.
   artifact_role:
     enum: ["n8n-workflow", "agent-skill", "agent-soul", "agent-profile", "agent-prompt",
            "agent-tool-definition", "plugin-definition", "executable-script",
@@ -223,7 +231,8 @@ properties:
            "workflow-catalog", "workflow-authoring-skills", "agent-skill-collection",
            "skill-management-system", "memory-system", "multi-agent-orchestrator",
            "agent-memory-system", "training-integration", "ai-content-pipeline",
-           "deployment-package", "deployment-template", "dataset", "unknown"]
+           "deployment-package", "deployment-template", "dataset",
+           "source-catalog", "unknown"]
   source_role:
     enum: ["core", "official-extension", "community-extension", "integration",
            "reference", "mirror", "fork", "dataset", "example-collection",
@@ -448,6 +457,7 @@ properties:
             - "agent-skill"
             - "plugin"
             - "web-ui"
+            - "static-site"
             - "library"
             - "dataset"
             - "unknown"
