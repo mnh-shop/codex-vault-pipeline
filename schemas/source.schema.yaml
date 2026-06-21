@@ -95,9 +95,10 @@ properties:
   # related_domains: ecosystems it is useful in (drives Obsidian ecosystem coloring).
   # artifact_role: what it provides (drives Obsidian core coloring when source_role=core).
   primary_domain:
-    enum: ["hermes-agent", "n8n", "agentfield", "coding-agents", "training-systems",
-           "ai-content-generation", "memory-systems", "cross-domain",
-           "general-development", "unknown"]
+    enum: ["hermes-agent", "n8n", "agentfield", "deep-research", "osint",
+           "coding-agents", "training-systems", "ai-content-generation",
+           "memory-systems", "cross-domain", "general-development",
+           "unknown"]
   related_domains:
     type: "array"
     items:

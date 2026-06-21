@@ -1,34 +1,137 @@
 # Codex Vault control vocabulary: primary_domain
-# Per AGENTS.md v3.3 + user correction 2026-06-20.
+# Per AGENTS.md v3.3 + user corrections 2026-06-20 and 2026-06-21.
 # Replaces vocab-domain-family. A repository's intrinsic identity.
 schema: "control-vocabulary/v1"
 schema_version: "1.0.0"
 vocab_name: "primary_domain"
-vocab_version: "1.0.0"
-description: "Intrinsic identity of a repository or artifact. Not the same as which ecosystem it is useful in (see related_domains)."
+vocab_version: "1.1.0"
+description: |
+  Intrinsic identity of a repository or artifact. Not the same as
+  which ecosystem it is useful in (see related_domains).
+
+  Categories (in priority order):
+    1. PLATFORM/ECOSYSTEM domains — describe the runtime a repo
+       ships for, not a specific use case. Examples: hermes-agent,
+       n8n, agentfield.
+    2. CAPABILITY/USE-CASE domains — describe what the repo
+       *does*, independent of the runtime it ships on. Examples:
+       deep-research, osint.
+    3. CROSS-RUNTIME UTILITY — broadly useful tooling that is not
+       tied to a single platform or a single use case. Examples:
+       coding-agents, training-systems, ai-content-generation,
+       memory-systems.
+    4. FALLBACK — cross-domain, general-development, unknown.
+
+  When in doubt, ask: "If this repo were rewritten for a different
+  runtime, would the change be trivial? If yes, primary_domain is
+  a CAPABILITY. If no (the repo's structure is dominated by the
+  platform's APIs), it is a PLATFORM."
+
 allowed:
+  # PLATFORM/ECOSYSTEM
   - "hermes-agent"
   - "n8n"
   - "agentfield"
+  # CAPABILITY/USE-CASE
+  - "deep-research"
+  - "osint"
+  # CROSS-RUNTIME UTILITY
   - "coding-agents"
   - "training-systems"
   - "ai-content-generation"
   - "memory-systems"
+  # FALLBACK
   - "cross-domain"
   - "general-development"
   - "unknown"
 notes: |
-  - "hermes-agent": Nous Research Hermes Agent — its core, official extensions, deployment packaging.
-  - "n8n": n8n workflow automation — core, integrations, templates, skills.
-  - "agentfield": Agent-Field control plane and ecosystem.
-  - "coding-agents": A coding-agent tool/skill/integration that is broadly useful across multiple agent runtimes (e.g. memory systems, skill packs, observability, deployment).
-  - "training-systems": RL / fine-tuning infrastructure (e.g. Tinker-Atropos).
-  - "ai-content-generation": AI-driven content pipelines (e.g. autonovel).
+  PLATFORM / ECOSYSTEM domains (the repo is intrinsically bound to
+  one runtime's APIs and concepts):
+
+  - "hermes-agent": Nous Research Hermes Agent — its core, official
+    extensions, deployment packaging. A repo is hermes-agent
+    primary_domain if and only if it is a piece of Hermes Agent
+    itself, not merely something that USES Hermes Agent.
+  - "n8n": n8n workflow automation — core, integrations, templates,
+    skills. A repo is n8n primary_domain if and only if it ships
+    n8n nodes, n8n workflows, or n8n-specific tooling.
+  - "agentfield": Agent-Field control plane and ecosystem. A repo
+    is agentfield primary_domain if and only if it is part of
+    Agent-Field itself or its official ecosystem.
+
+  CAPABILITY / USE-CASE domains (the repo is intrinsically about
+  a capability, not a runtime):
+
+  - "deep-research": Recursive / multi-step research agents that
+    search, read, and synthesize. Includes autonomous research
+    backends, deep-search systems, recursive-research frameworks.
+    A repo is deep-research primary_domain if and only if its
+    core is a research loop, not a runtime integration.
+  - "osint": Open-source intelligence — collection, correlation,
+    and analysis of public data for intelligence purposes. A
+    repo is osint primary_domain if and only if its core is
+    intelligence-gathering or analysis, not just a generic
+    search tool.
+
+  CROSS-RUNTIME UTILITY (broadly useful across multiple platforms
+  or use cases):
+
+  - "coding-agents": A coding-agent tool/skill/integration that
+    is broadly useful across multiple agent runtimes (memory
+    systems, skill packs, observability, deployment).
+  - "training-systems": RL / fine-tuning infrastructure
+    (e.g. Tinker-Atropos).
+  - "ai-content-generation": AI-driven content pipelines
+    (e.g. autonovel).
   - "memory-systems": Standalone memory/knowledge tools.
-  - "cross-domain": Real cross-domain integration.
-  - "general-development": Reference material not tied to a specific domain.
+
+  FALLBACK:
+
+  - "cross-domain": Real cross-domain integration that does not
+    fit a single platform or capability bucket.
+  - "general-development": Reference material not tied to a
+    specific domain.
   - "unknown": Provenance is not yet determined.
 
-  Per the user's taxonomy correction: do NOT force every repo into hermes-agent/n8n/agentfield.
-  Tools that are useful across runtimes should be primary_domain=coding-agents (or similar)
-  and use related_domains to indicate which ecosystems include them.
+  How primary_domain interacts with related_domains and tags:
+
+  - primary_domain: ONE value from the allowed list. Describes
+    the repo's intrinsic purpose. This is the field that drives
+    Obsidian core-coloring and the strict validator's R13
+    (orphan_domain_record_source) check.
+  - related_domains: ZERO OR MORE values from the allowed list
+    (or free-form string for transitional cases). Describes
+    ecosystems the repo is useful in. Drives Obsidian
+    ecosystem-coloring.
+  - tags: free-form list of short labels. Not constrained by
+    the controlled vocab. Used for fine-grained search and
+    Obsidian-side filtering.
+  - scope.covers (knowledge notes only): free-form prose
+    describing what the note covers, in plain English.
+
+  Examples of correct taxonomy:
+
+  - A repo that IS the Hermes Agent runtime: primary_domain=hermes-agent
+  - A n8n workflow template: primary_domain=n8n
+  - A deep-research framework: primary_domain=deep-research
+  - An OSINT tool: primary_domain=osint
+  - A memory system usable in both hermes-agent and n8n:
+    primary_domain=memory-systems, related_domains=[hermes-agent, n8n]
+  - A coding assistant CLI that works in any agent runtime:
+    primary_domain=coding-agents, related_domains=[hermes-agent, n8n, agentfield]
+
+  Deliberately NOT in the allowed list (these remain tags/scope
+  fields, not primary_domain values):
+
+  - "rag" (a technique, not a domain)
+  - "vector-search" (a technique, not a domain)
+  - "enterprise-search" (a sub-capability of deep-research)
+  - "cyber-intelligence" (overlaps osint; out of scope)
+  - "evidence-management" (an internal concern of the vault, not
+    a repo domain)
+
+  Per the user's taxonomy correction: do NOT force every repo
+  into hermes-agent/n8n/agentfield. Tools that are useful across
+  runtimes should be primary_domain=coding-agents (or similar)
+  and use related_domains to indicate which ecosystems include
+  them.
