@@ -18,6 +18,7 @@ import sys
 import time
 from collections import defaultdict
 from datetime import datetime, timezone
+import os
 from pathlib import Path
 
 import yaml
@@ -40,6 +41,37 @@ RUN_ID = f"bench-{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S')}"
 
 # Each query: (id, category, query_text, expected_source_ids, expected_paths (optional))
 BENCHMARK_QUERIES = [
+    # --- Phase 6 deep-research / OSINT batch (added 2026-06-21) ---
+    ("dr-open-1", "deep-research", "open deep research agent langchain langgraph",
+     ["github:langchain-ai/open_deep_research"], None),
+    ("dr-open-2", "deep-research", "tavily exa arxiv open deep research plan execute",
+     ["github:langchain-ai/open_deep_research"], None),
+    ("dr-from-scratch-1", "deep-research", "deep research from scratch jupyter notebook tutorial",
+     ["github:langchain-ai/deep_research_from_scratch"], None),
+    ("dr-tongyi-1", "deep-research", "Tongyi DeepResearch 30B agentic web agent",
+     ["github:Alibaba-NLP/DeepResearch"], None),
+    ("dr-tongyi-2", "deep-research", "Alibaba NLP deep research humanity last exam browsecomp",
+     ["github:Alibaba-NLP/DeepResearch"], None),
+    ("dr-manusearch-1", "deep-research", "ManuSearch multi-agent planner searcher reader ORION",
+     ["github:RUCAIBox/ManuSearch"], None),
+    ("dr-simpledeep-1", "deep-research", "SimpleDeepSearcher R1-Searcher knowledge distillation",
+     ["github:RUCAIBox/SimpleDeepSearcher"], None),
+    ("dr-deerflow-1", "deep-research", "deer-flow super agent harness sub-agent sandbox",
+     ["github:bytedance/deer-flow"], None),
+    ("osint-awesome-1", "osint", "awesome osint curated list of tools",
+     ["github:jivoi/awesome-osint"], None),
+    ("osint-framework-1", "osint", "OSINT framework static site d3",
+     ["github:lockfale/OSINT-Framework"], None),
+    ("osint-synint-1", "osint", "SYNINT local-first OSINT investigation 46 agents camoufox",
+     ["github:gs-ai/SYNINT"], None),
+    # Multi-repo composition queries
+    ("compose-dr-vec-1", "deep-research", "deep research agent vector backend deep-searcher milvus",
+     ["github:langchain-ai/open_deep_research", "github:zilliztech/deep-searcher"], None),
+    ("compose-osint-hermes-1", "osint", "OSINT framework wrapped as Hermes agent skill",
+     ["github:gs-ai/SYNINT", "github:NousResearch/hermes-agent"], None),
+    ("compose-catalog-tool-1", "osint", "source catalog referencing OSINT investigation tool",
+     ["github:jivoi/awesome-osint", "github:gs-ai/SYNINT"], None),
+] + [
     # --- Hermes Agent core ---
     ("hermes-core-1", "hermes-core", "Hermes Agent self-improving",
      ["github:NousResearch/hermes-agent"], None),

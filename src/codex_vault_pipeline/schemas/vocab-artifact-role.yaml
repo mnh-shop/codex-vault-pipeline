@@ -3,7 +3,7 @@
 schema: "control-vocabulary/v1"
 schema_version: "1.0.0"
 vocab_name: "artifact_role"
-vocab_version: "1.0.0"
+vocab_version: "1.1.0"
 description: "What an artifact or repository provides, independent of its source_role (relationship to a core project)."
 allowed:
   - "n8n-workflow"
@@ -40,6 +40,7 @@ allowed:
   - "deployment-template"
   - "dataset"
   - "metadata"
+  - "source-catalog"
   - "unknown"
 notes: |
   Closed list. Distinguishes intrinsic artifact type (this vocab) from relationship to a

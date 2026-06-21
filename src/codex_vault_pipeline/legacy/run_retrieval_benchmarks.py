@@ -79,6 +79,37 @@ FORBIDDEN_SECRET_PATTERNS = [
 #              expected_candidate_slug_or_None, n8n_source_path_must_contain or None)
 
 QUERIES = [
+    # --- Phase 6 deep-research / OSINT batch (added 2026-06-21) ---
+    ("dr-open-1", "deep-research", "fts", "open deep research agent langchain langgraph",
+     ["github:langchain-ai/open_deep_research"], "open-deep-research", None),
+    ("dr-open-2", "deep-research", "vector", "tavily exa arxiv open deep research plan execute",
+     ["github:langchain-ai/open_deep_research"], "open-deep-research", None),
+    ("dr-from-scratch-1", "deep-research", "fts", "deep research from scratch jupyter notebook tutorial",
+     ["github:langchain-ai/deep_research_from_scratch"], "deep-research-from-scratch", None),
+    ("dr-tongyi-1", "deep-research", "vector", "Tongyi DeepResearch 30B agentic web agent",
+     ["github:Alibaba-NLP/DeepResearch"], "alibaba-nlp-deepresearch", None),
+    ("dr-tongyi-2", "deep-research", "fts", "Alibaba NLP deep research humanity last exam browsecomp",
+     ["github:Alibaba-NLP/DeepResearch"], "alibaba-nlp-deepresearch", None),
+    ("dr-manusearch-1", "deep-research", "vector", "ManuSearch multi-agent planner searcher reader ORION",
+     ["github:RUCAIBox/ManuSearch"], "manusearch", None),
+    ("dr-simpledeep-1", "deep-research", "fts", "SimpleDeepSearcher R1-Searcher knowledge distillation",
+     ["github:RUCAIBox/SimpleDeepSearcher"], "simpledeepresearcher", None),
+    ("dr-deerflow-1", "deep-research", "vector", "deer-flow super agent harness sub-agent sandbox",
+     ["github:bytedance/deer-flow"], "deer-flow", None),
+    ("osint-awesome-1", "osint", "fts", "awesome osint curated list of tools",
+     ["github:jivoi/awesome-osint"], "awesome-osint", None),
+    ("osint-framework-1", "osint", "fts", "OSINT framework static site d3",
+     ["github:lockfale/OSINT-Framework"], "osint-framework", None),
+    ("osint-synint-1", "osint", "vector", "SYNINT local-first OSINT investigation 46 agents camoufox",
+     ["github:gs-ai/SYNINT"], "synint", None),
+    # Multi-repo composition queries
+    ("compose-dr-vec-1", "deep-research", "vector", "deep research agent vector backend deep-searcher milvus",
+     ["github:langchain-ai/open_deep_research", "github:zilliztech/deep-searcher"], "open-deep-research", None),
+    ("compose-osint-hermes-1", "osint", "vector", "OSINT framework wrapped as Hermes agent skill",
+     ["github:gs-ai/SYNINT", "github:NousResearch/hermes-agent"], "synint", None),
+    ("compose-catalog-tool-1", "osint", "fts", "source catalog referencing OSINT investigation tool",
+     ["github:jivoi/awesome-osint", "github:gs-ai/SYNINT"], "awesome-osint", None),
+] + [
     # --- Hermes Agent core ---
     ("hermes-core-1", "hermes-core", "fts", "Hermes Agent self-improving",
      ["github:NousResearch/hermes-agent"], "hermes-agent-core", None),
