@@ -588,8 +588,27 @@ def search_fts(
     source_id: str | None = None,
 ) -> list[dict[str, Any]]:
     """Search the v2 FTS index."""
-    # Quote query to handle special characters like dots
-    safe_query = f'"{query}"'
+    # Build FTS5 query: use individual words with OR for better recall
+    # This handles multi-word queries better than strict AND
+    words = query.split()
+    if not words:
+        return []
+
+    # Escape special FTS5 characters and join with OR
+    safe_words = []
+    for w in words:
+        # Remove FTS5 special chars but keep dots for terms like SOUL.md
+        w_clean = w.replace('"', '').replace("'", "").replace('*', '').replace('?', '').replace(':', '')
+        # Skip very short words (stop words)
+        if len(w_clean) > 2:
+            safe_words.append(f'"{w_clean}"')
+
+    if not safe_words:
+        return []
+
+    # Use OR for better recall
+    safe_query = " OR ".join(safe_words)
+
     sql = """
         SELECT
             f.chunk_id, f.source_id, f.path, f.heading_or_symbol,

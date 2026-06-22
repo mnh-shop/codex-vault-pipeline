@@ -664,8 +664,10 @@ def cmd_v2(args: argparse.Namespace) -> int:
     elif args.v2_action == "context":
         if args.v2_subaction == "schema":
             return _v2_context_schema(args)
+        elif args.v2_subaction == "pack":
+            return _v2_context_pack(args)
         else:
-            print("ERROR: context requires subaction: schema", file=sys.stderr)
+            print("ERROR: context requires subaction: schema or pack", file=sys.stderr)
             return 2
     elif args.v2_action == "packs":
         if args.v2_subaction == "index":
@@ -1165,6 +1167,60 @@ The schema includes validation functions to ensure context packs are well-formed
     return 0
 
 
+def _v2_context_pack(args: argparse.Namespace) -> int:
+    """Generate a context pack from v2 FTS index."""
+    import json
+    import time
+    from pathlib import Path
+    from codex_vault_pipeline.v2.context_packer import pack_context
+
+    try:
+        paths = require_vault_root(args)
+    except SystemExit as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        return 1
+
+    query = getattr(args, "query", None)
+    if not query:
+        print("ERROR: --query is required for context pack", file=sys.stderr)
+        return 1
+
+    db_path = paths.runtime_root / "indexes" / "v2" / "repo-packs.sqlite"
+    if not db_path.exists():
+        print(f"ERROR: v2 pack index not found: {db_path}", file=sys.stderr)
+        return 1
+
+    source_id = getattr(args, "source_id", None)
+    artifact_role = getattr(args, "artifact_role", None)
+    max_tokens = getattr(args, "max_tokens", 8000)
+    max_items = getattr(args, "max_items", 50)
+    fmt = getattr(args, "format", "markdown")
+    output_path = getattr(args, "output", None)
+
+    pack = pack_context(
+        db_path=db_path,
+        query=query,
+        source_id=source_id,
+        artifact_role=artifact_role,
+        max_tokens=max_tokens,
+        max_items=max_items,
+    )
+
+    # Output
+    if fmt == "json":
+        print(pack.to_json())
+    else:
+        print(pack.to_markdown())
+
+    # Write to file if requested
+    if output_path:
+        out = Path(output_path)
+        pack.write(out)
+        print(f"\nContext pack written to: {out}", file=sys.stderr)
+
+    return 0
+
+
 # --- v2 packs commands ---------------------------------------------------
 
 
@@ -1405,15 +1461,25 @@ def build_parser() -> argparse.ArgumentParser:
             sp.add_argument("v2_action", choices=["doctor", "repomix", "deepwiki", "n8n", "retrieval", "context", "packs"],
                             help="Action: doctor, repomix, deepwiki, n8n, retrieval, context, or packs")
             sp.add_argument("v2_subaction", nargs="?", default=None,
-                            help="Sub-action (e.g., plan, run, sanity, coverage, policy, schema, index, stats, search)")
+                            help="Sub-action (e.g., plan, run, sanity, coverage, policy, schema, pack, index, stats, search)")
             sp.add_argument("--pilot", action="store_true",
                             help="Run in pilot mode")
             sp.add_argument("--query", default=None,
-                            help="Search query for packs search")
+                            help="Search query for packs search or context pack")
             sp.add_argument("--limit", type=int, default=5,
                             help="Max results for packs search (default: 5)")
             sp.add_argument("--source-id", default=None,
-                            help="Filter by source_id for packs search")
+                            help="Filter by source_id for packs search or context pack")
+            sp.add_argument("--artifact-role", default=None,
+                            help="Filter by artifact_role for context pack")
+            sp.add_argument("--max-tokens", type=int, default=8000,
+                            help="Max tokens for context pack (default: 8000)")
+            sp.add_argument("--max-items", type=int, default=50,
+                            help="Max items for context pack (default: 50)")
+            sp.add_argument("--format", choices=["markdown", "json"], default="markdown",
+                            help="Output format for context pack (default: markdown)")
+            sp.add_argument("--output", default=None,
+                            help="Output file path for context pack")
     return ap
 
 

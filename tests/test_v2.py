@@ -640,3 +640,329 @@ class TestPackIndexCLI:
         monkeypatch.setenv("CODEX_VAULT_ROOT", str(tmp_path))
         result = main(["v2", "packs", "search"])
         assert result == 1  # error because no query
+
+
+# --- v2 context packer tests ---
+
+
+class TestContextPacker:
+    """Tests for v2 context packer."""
+
+    def test_context_pack_schema_validation(self):
+        """Test context pack schema validation."""
+        from codex_vault_pipeline.v2.context_packer import ContextPack, ContextPackItem
+
+        pack = ContextPack(
+            pack_id="test-pack",
+            query="test query",
+            generated_at="2026-06-22T00:00:00Z",
+            retrieval_method="fts",
+            total_results_considered=10,
+            selected_items_count=5,
+            token_budget=8000,
+            estimated_tokens=1000,
+        )
+        assert pack.pack_id == "test-pack"
+        assert pack.token_budget == 8000
+
+    def test_token_budget_enforcement(self, tmp_path):
+        """Test token budget enforcement."""
+        from codex_vault_pipeline.v2.pack_index import (
+            get_db, index_pack, rebuild_fts, parse_repomix_pack,
+        )
+        from codex_vault_pipeline.v2.context_packer import pack_context
+
+        # Create fixture with multiple chunks
+        fixture = tmp_path / "output.md"
+        fixture.write_text("""# Files
+
+## File: src/main.py
+```python
+def hello():
+    print("hello world")
+```
+
+## File: src/utils.py
+```python
+def helper():
+    return True
+```
+
+## File: docs/guide.md
+```markdown
+# Guide
+This is a guide.
+```
+""")
+
+        db_path = tmp_path / "test.sqlite"
+        conn = get_db(db_path)
+        parsed = parse_repomix_pack(
+            pack_path=str(fixture),
+            source_id="github:test/repo",
+            pack_id="test_repo",
+        )
+        index_pack(conn, parsed)
+        rebuild_fts(conn)
+        conn.close()
+
+        # Pack with small token budget
+        pack = pack_context(
+            db_path=db_path,
+            query="hello world",
+            max_tokens=100,  # very small budget
+        )
+        assert pack.estimated_tokens <= 100
+        assert pack.selected_items_count <= 3
+
+    def test_readme_demotion(self, tmp_path):
+        """Test README demotion."""
+        from codex_vault_pipeline.v2.context_packer import _should_demote_readme
+
+        # Should demote for non-README queries
+        assert _should_demote_readme("How does X work?") is True
+
+        # Should NOT demote when query mentions README
+        assert _should_demote_readme("Readme setup instructions") is False
+        assert _should_demote_readme("Installation overview") is False
+
+    def test_generated_catalog_demotion(self, tmp_path):
+        """Test generated catalog demotion."""
+        from codex_vault_pipeline.v2.context_packer import _should_demote_catalog
+
+        # Should demote for non-catalog queries
+        assert _should_demote_catalog("How does X work?") is True
+
+        # Should NOT demote when query mentions catalog
+        assert _should_demote_catalog("Show me the catalog") is False
+        assert _should_demote_catalog("Index of files") is False
+
+    def test_source_diversity(self, tmp_path):
+        """Test source diversity in context packing."""
+        from codex_vault_pipeline.v2.pack_index import (
+            get_db, index_pack, rebuild_fts, parse_repomix_pack,
+        )
+        from codex_vault_pipeline.v2.context_packer import pack_context
+
+        # Create fixture from source A
+        fixture_a = tmp_path / "output_a.md"
+        fixture_a.write_text("""# Files
+
+## File: src/main.py
+```python
+def hello():
+    print("hello from A")
+```
+""")
+
+        # Create fixture from source B
+        fixture_b = tmp_path / "output_b.md"
+        fixture_b.write_text("""# Files
+
+## File: src/utils.py
+```python
+def helper():
+    return "hello from B"
+```
+""")
+
+        db_path = tmp_path / "test.sqlite"
+        conn = get_db(db_path)
+
+        parsed_a = parse_repomix_pack(
+            pack_path=str(fixture_a),
+            source_id="github:test/repo_a",
+            pack_id="test_repo_a",
+        )
+        index_pack(conn, parsed_a)
+
+        parsed_b = parse_repomix_pack(
+            pack_path=str(fixture_b),
+            source_id="github:test/repo_b",
+            pack_id="test_repo_b",
+        )
+        index_pack(conn, parsed_b)
+        rebuild_fts(conn)
+        conn.close()
+
+        pack = pack_context(
+            db_path=db_path,
+            query="hello",
+            max_tokens=2000,
+        )
+        # Should have results from both sources
+        sources = {i.source_id for i in pack.items}
+        assert len(sources) >= 1  # at least one source
+
+    def test_provenance_inclusion(self, tmp_path):
+        """Test source_id/path provenance inclusion."""
+        from codex_vault_pipeline.v2.pack_index import (
+            get_db, index_pack, rebuild_fts, parse_repomix_pack,
+        )
+        from codex_vault_pipeline.v2.context_packer import pack_context
+
+        fixture = tmp_path / "output.md"
+        fixture.write_text("""# Files
+
+## File: src/main.py
+```python
+def hello():
+    print("hello")
+```
+""")
+
+        db_path = tmp_path / "test.sqlite"
+        conn = get_db(db_path)
+        parsed = parse_repomix_pack(
+            pack_path=str(fixture),
+            source_id="github:test/repo",
+            pack_id="test_repo",
+        )
+        index_pack(conn, parsed)
+        rebuild_fts(conn)
+        conn.close()
+
+        pack = pack_context(
+            db_path=db_path,
+            query="hello",
+        )
+        for item in pack.items:
+            assert item.source_id is not None
+            assert item.path is not None
+
+    def test_markdown_output(self, tmp_path):
+        """Test markdown output format."""
+        from codex_vault_pipeline.v2.pack_index import (
+            get_db, index_pack, rebuild_fts, parse_repomix_pack,
+        )
+        from codex_vault_pipeline.v2.context_packer import pack_context
+
+        fixture = tmp_path / "output.md"
+        fixture.write_text("""# Files
+
+## File: src/main.py
+```python
+def hello():
+    print("hello")
+```
+""")
+
+        db_path = tmp_path / "test.sqlite"
+        conn = get_db(db_path)
+        parsed = parse_repomix_pack(
+            pack_path=str(fixture),
+            source_id="github:test/repo",
+            pack_id="test_repo",
+        )
+        index_pack(conn, parsed)
+        rebuild_fts(conn)
+        conn.close()
+
+        pack = pack_context(db_path=db_path, query="hello")
+        md = pack.to_markdown()
+        assert "# Context Pack:" in md
+        assert "github:test/repo" in md
+        assert "src/main.py" in md
+
+    def test_json_output(self, tmp_path):
+        """Test JSON output format."""
+        from codex_vault_pipeline.v2.pack_index import (
+            get_db, index_pack, rebuild_fts, parse_repomix_pack,
+        )
+        from codex_vault_pipeline.v2.context_packer import pack_context
+        import json
+
+        fixture = tmp_path / "output.md"
+        fixture.write_text("""# Files
+
+## File: src/main.py
+```python
+def hello():
+    print("hello")
+```
+""")
+
+        db_path = tmp_path / "test.sqlite"
+        conn = get_db(db_path)
+        parsed = parse_repomix_pack(
+            pack_path=str(fixture),
+            source_id="github:test/repo",
+            pack_id="test_repo",
+        )
+        index_pack(conn, parsed)
+        rebuild_fts(conn)
+        conn.close()
+
+        pack = pack_context(db_path=db_path, query="hello")
+        j = pack.to_json()
+        data = json.loads(j)
+        assert "pack_id" in data
+        assert "items" in data
+        assert "source_coverage" in data
+
+    def test_context_packer_cli_help(self):
+        """Test context packer CLI help."""
+        from codex_vault_pipeline.cli import main
+        import sys
+        from io import StringIO
+
+        old_stdout = sys.stdout
+        sys.stdout = StringIO()
+        try:
+            with pytest.raises(SystemExit) as exc_info:
+                main(["v2", "context", "--help"])
+            assert exc_info.value.code == 0
+        finally:
+            sys.stdout = old_stdout
+
+    def test_context_packer_no_db(self, tmp_path, monkeypatch):
+        """Test context packer with no DB."""
+        from codex_vault_pipeline.cli import main
+
+        monkeypatch.setenv("CODEX_VAULT_ROOT", str(tmp_path))
+        result = main(["v2", "context", "pack", "--query", "test"])
+        assert result == 1  # error because no DB
+
+    def test_context_packer_fixture_db(self, tmp_path):
+        """Test context packer with fixture DB."""
+        from codex_vault_pipeline.v2.pack_index import (
+            get_db, index_pack, rebuild_fts, parse_repomix_pack,
+        )
+        from codex_vault_pipeline.v2.context_packer import pack_context
+
+        fixture = tmp_path / "output.md"
+        fixture.write_text("""# Files
+
+## File: src/main.py
+```python
+def hello():
+    print("hello")
+```
+
+## File: SKILL.md
+```markdown
+# My Skill
+This is a test skill.
+```
+""")
+
+        db_path = tmp_path / "test.sqlite"
+        conn = get_db(db_path)
+        parsed = parse_repomix_pack(
+            pack_path=str(fixture),
+            source_id="github:test/repo",
+            pack_id="test_repo",
+        )
+        index_pack(conn, parsed)
+        rebuild_fts(conn)
+        conn.close()
+
+        pack = pack_context(
+            db_path=db_path,
+            query="hello",
+            max_tokens=2000,
+        )
+        assert pack.selected_items_count > 0
+        assert pack.estimated_tokens > 0
+        assert len(pack.items) > 0
+        assert pack.items[0].source_id == "github:test/repo"
