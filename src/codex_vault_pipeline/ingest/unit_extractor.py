@@ -204,7 +204,7 @@ def _unit_id(sha: str, anchor: str) -> str:
 
 
 def _content_hash(data: bytes) -> str:
-    return f"sha256:{hashlib.sha256(data).hexdigest()}"
+    return hashlib.sha256(data).hexdigest()
 
 
 def _slugify(text: str) -> str:
@@ -320,8 +320,10 @@ def split_markdown_sections(text: str) -> List[Tuple[Optional[int], Optional[str
     def push():
         nonlocal current_start
         if current_text is not None or current_buf:
+            # Ensure valid line span: empty-body sections must have start <= end
+            end = max(current_end, current_start)
             sections.append(
-                (current_level, current_text, "\n".join(current_buf), current_start, current_end)
+                (current_level, current_text, "\n".join(current_buf), current_start, end)
             )
 
     for i, line in enumerate(lines, start=1):

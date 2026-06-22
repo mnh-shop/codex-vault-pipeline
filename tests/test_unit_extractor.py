@@ -464,6 +464,7 @@ class TestUtils:
     def test_make_fingerprints(self):
         fp = _make_fingerprints("a" * 64, "sha256:abc#test", "Test Title", "summary text")
         assert fp["content_sha256"] == "a" * 64
-        assert fp["normalized_hash"].startswith("sha256:")
-        assert fp["structural_hash"].startswith("sha256:")
-        assert fp["semantic_signature"].startswith("sha256:")
+        assert len(fp["normalized_hash"]) == 64
+        assert set(fp["normalized_hash"]).issubset(set("0123456789abcdef"))
+        assert len(fp["structural_hash"]) == 64
+        assert fp["semantic_signature"]

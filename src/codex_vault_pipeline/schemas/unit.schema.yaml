@@ -56,9 +56,11 @@ properties:
       line_end: { type: "integer", minimum: 1 }
       section: { type: "string" }
   unit_type:
-    enum: ["n8n-workflow", "n8n-node", "doc-section", "code-symbol", "hermes-skill",
-           "hermes-tool", "hermes-provider", "hermes-profile", "agentfield-agent",
-           "agentfield-service", "agentfield-control-plane", "deployment-component"]
+    enum: ["n8n-workflow", "n8n-node", "doc-section", "code-symbol",
+           "configuration", "deployment-component", "hermes-skill",
+           "hermes-soul", "hermes-tool", "hermes-provider", "hermes-profile",
+           "agentfield-agent", "agentfield-service", "agentfield-control-plane",
+           "script-and-supporting"]
   title: { type: "string", minLength: 1 }
   semantic_text: { type: "string" }
   token_count: { type: "integer", minimum: 0 }
