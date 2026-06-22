@@ -48,7 +48,7 @@ import time
 from collections import Counter, defaultdict
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional
 
 import yaml
 
@@ -58,18 +58,9 @@ except ImportError:
     print("ERROR: jsonschema library required", file=sys.stderr)
     sys.exit(2)
 
-# detect-secrets is an optional runtime dep; we degrade gracefully
-HAVE_DETECT_SECRETS: bool = False
-ds_scan_file = None
-try:
-    from detect_secrets.core.scan import scan_file as _ds_scan_file
-    ds_scan_file = _ds_scan_file
-    HAVE_DETECT_SECRETS = True
-except ImportError:
-    pass
-
 from codex_vault_pipeline.paths import resolve_paths, add_vault_root_arg, require_vault_root
 from codex_vault_pipeline.extractors.tech_profile import extract_tech_profile
+from codex_vault_pipeline.utils import file_policy
 
 
 # ----- Constants ---------------------------------------------------------
@@ -101,58 +92,6 @@ SKIP_DIRS = {
     ".git", "node_modules", "__pycache__", ".venv", "venv",
     "dist", "build", ".mypy_cache", ".pytest_cache", ".ruff_cache",
     "target", ".idea", ".vscode", "site-packages",
-}
-
-# Media type inference by file extension.
-MEDIA_TYPES: Dict[str, str] = {
-    ".py": "text/python", ".pyi": "text/python", ".pyx": "text/python",
-    ".js": "text/javascript", ".mjs": "text/javascript", ".cjs": "text/javascript",
-    ".jsx": "text/javascript", ".ts": "text/typescript", ".tsx": "text/typescript",
-    ".go": "text/go", ".rs": "text/rust", ".java": "text/java",
-    ".kt": "text/kotlin", ".kts": "text/kotlin", ".swift": "text/swift",
-    ".c": "text/c", ".h": "text/c", ".cpp": "text/cpp", ".cc": "text/cpp",
-    ".cxx": "text/cpp", ".hpp": "text/cpp",
-    ".cs": "text/csharp", ".rb": "text/ruby", ".php": "text/php",
-    ".pl": "text/perl", ".lua": "text/lua", ".r": "text/r",
-    ".scala": "text/scala", ".ex": "text/elixir", ".exs": "text/elixir",
-    ".erl": "text/erlang", ".hs": "text/haskell",
-    ".dart": "text/dart", ".sh": "text/shell", ".bash": "text/shell",
-    ".zsh": "text/shell", ".fish": "text/shell",
-    ".ps1": "text/powershell", ".bat": "text/batch", ".cmd": "text/batch",
-    ".sql": "text/sql", ".vue": "text/vue", ".svelte": "text/svelte",
-    ".html": "text/html", ".htm": "text/html",
-    ".css": "text/css", ".scss": "text/css", ".sass": "text/css",
-    ".less": "text/css",
-    ".md": "text/markdown", ".mdx": "text/markdown", ".rst": "text/rst",
-    ".yaml": "text/yaml", ".yml": "text/yaml",
-    ".json": "text/json", ".json5": "text/json", ".jsonc": "text/json",
-    ".toml": "text/toml", ".ini": "text/ini", ".cfg": "text/cfg",
-    ".xml": "text/xml", ".proto": "text/protobuf",
-    ".graphql": "text/graphql", ".gql": "text/graphql",
-    ".tf": "text/terraform", ".hcl": "text/hcl", ".nix": "text/nix",
-    ".ipynb": "text/jupyter",
-    ".txt": "text/plain", ".text": "text/plain",
-    ".csv": "text/csv", ".tsv": "text/tsv",
-    ".lock": "text/plain", ".sum": "text/plain",
-    ".env": "text/env", ".envrc": "text/env",
-    ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg",
-    ".gif": "image/gif", ".svg": "image/svg+xml", ".webp": "image/webp",
-    ".ico": "image/x-icon", ".pdf": "application/pdf",
-    ".zip": "application/zip", ".tar": "application/tar",
-    ".gz": "application/gzip", ".bz2": "application/bzip2",
-    ".mp3": "audio/mpeg", ".wav": "audio/wav",
-    ".mp4": "video/mp4", ".webm": "video/webm",
-}
-
-# Binary extensions that are always treated as binary
-BINARY_EXTS = {
-    ".png", ".jpg", ".jpeg", ".gif", ".webp", ".ico", ".bmp", ".tiff",
-    ".pdf", ".zip", ".tar", ".gz", ".bz2", ".xz", ".7z", ".rar",
-    ".mp3", ".wav", ".ogg", ".flac", ".mp4", ".webm", ".mov", ".avi",
-    ".so", ".dll", ".dylib", ".o", ".a", ".class", ".pyc", ".pyo",
-    ".whl", ".egg", ".parquet", ".arrow", ".feather", ".pickle",
-    ".pkl", ".bin", ".dat", ".db", ".sqlite", ".sqlite3",
-    ".safetensors", ".pt", ".pth", ".onnx",
 }
 
 # Heuristic: files that look like model weights or large data
@@ -709,39 +648,7 @@ def sha256_file(path: Path, max_bytes: int = MAX_FILE_SIZE) -> Optional[str]:
         return None
 
 
-def detect_media_type(path: Path) -> str:
-    """Best-effort media type from extension."""
-    return MEDIA_TYPES.get(path.suffix.lower(), "application/octet-stream")
 
-
-def is_binary(path: Path) -> bool:
-    """A file is binary if its extension is in BINARY_EXTS or it doesn't
-    have a text media type."""
-    ext = path.suffix.lower()
-    if ext in BINARY_EXTS:
-        return True
-    mt = detect_media_type(path)
-    return not (mt.startswith("text/") or mt == "application/json"
-                or mt == "application/pdf" or mt == "application/yaml")
-
-
-def scan_secrets_for_file(path: Path) -> Tuple[str, int]:
-    """Run detect-secrets on a single file. Returns (status, finding_count).
-    status is one of: 'clean', 'flagged', 'blocked', 'not-scanned'."""
-    if not HAVE_DETECT_SECRETS:
-        return ("not-scanned", 0)
-    try:
-        findings = list(ds_scan_file(str(path)))
-        if not findings:
-            return ("clean", 0)
-        # Heuristic: any high-confidence finding is blocked; else flagged
-        high_conf = any(getattr(f, "confidence", "").lower() in ("high",)
-                        for f in findings)
-        if high_conf:
-            return ("blocked", len(findings))
-        return ("flagged", len(findings))
-    except Exception:
-        return ("not-scanned", 0)
 
 
 def walk_repo_files(raw_root: Path, max_files: int = MAX_FILES_PER_REPO) -> List[Path]:
@@ -858,12 +765,12 @@ def ingest_one(cfg: Dict[str, Any], run_id: str) -> Dict[str, Any]:
             continue
         source_path = str(rel)
         ext = p.suffix.lower()
-        if ext in MEDIA_TYPES:
-            language = MEDIA_TYPES[ext].split("/")[-1]
+        if ext in file_policy.MEDIA_TYPES:
+            language = file_policy.MEDIA_TYPES[ext].split("/")[-1]
             language_counts[language] += 1
 
         file_count_total += 1
-        binary = is_binary(p)
+        binary = file_policy.is_binary(p)
         if binary:
             file_count_binary += 1
         h = sha256_file(p)
@@ -879,7 +786,7 @@ def ingest_one(cfg: Dict[str, Any], run_id: str) -> Dict[str, Any]:
                 "record_id": artifact_id,
                 "artifact_id": artifact_id,
                 "content_sha256": h,
-                "media_type": detect_media_type(p),
+                "media_type": file_policy.detect_media_type(p),
                 "size_bytes": p.stat().st_size,
                 "artifact_role": _classify_artifact_role(p, rel),
                 "parse_status": "valid" if not binary else "binary",
@@ -892,7 +799,7 @@ def ingest_one(cfg: Dict[str, Any], run_id: str) -> Dict[str, Any]:
                 "content_hash": f"sha256:{h}",
                 "source_path": source_path,
             }
-            sec_status, sec_count = scan_secrets_for_file(p)
+            sec_status, sec_count = file_policy.scan_secrets(p)
             artifact["security_status"] = sec_status
             artifact["security_finding_count"] = sec_count
             if sec_status == "clean":
@@ -1515,7 +1422,7 @@ def main() -> int:
 
     print(f"Vault root: {VAULT}")
     print(f"Run ID: {args.run_id}")
-    print(f"detect-secrets available: {HAVE_DETECT_SECRETS}")
+    print(f"detect-secrets available: {file_policy.HAVE_DETECT_SECRETS}")
     print()
 
     summaries = []

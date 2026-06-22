@@ -16,17 +16,11 @@ import re
 import sys
 from collections import Counter
 from pathlib import Path
-from typing import Optional, Tuple
+from typing import Optional
 
 import yaml
 
-try:
-    from detect_secrets.core.scan import scan_file as _ds_scan_file
-    HAVE_DETECT_SECRETS = True
-except ImportError:
-    HAVE_DETECT_SECRETS = False
-    _ds_scan_file = None
-
+from codex_vault_pipeline.utils import file_policy
 
 VAULT = Path(os.environ.get("CODEX_VAULT_ROOT") or ".")
 RUNTIME = VAULT / ".runtime"
@@ -42,46 +36,6 @@ SKIP_DIRS = {
     ".git", "node_modules", "__pycache__", ".venv", "venv",
     "build", ".mypy_cache", ".pytest_cache", ".ruff_cache",
     "target", ".idea", "site-packages",
-}
-
-BINARY_EXTS = {
-    ".png", ".jpg", ".jpeg", ".gif", ".webp", ".ico", ".bmp", ".tiff",
-    ".pdf", ".zip", ".tar", ".gz", ".bz2", ".xz", ".7z", ".rar",
-    ".mp3", ".wav", ".ogg", ".flac", ".mp4", ".webm", ".mov", ".avi",
-    ".so", ".dll", ".dylib", ".o", ".a", ".class", ".pyc", ".pyo",
-    ".whl", ".egg", ".parquet", ".arrow", ".feather", ".pickle",
-    ".pkl", ".bin", ".dat", ".db", ".sqlite", ".sqlite3",
-    ".safetensors", ".pt", ".pth", ".onnx",
-}
-
-MEDIA_TYPES = {
-    ".py": "text/python", ".pyi": "text/python", ".pyx": "text/python",
-    ".js": "text/javascript", ".ts": "text/typescript", ".tsx": "text/typescript",
-    ".go": "text/go", ".rs": "text/rust", ".java": "text/java",
-    ".kt": "text/kotlin", ".kts": "text/kotlin",
-    ".c": "text/c", ".h": "text/c", ".cpp": "text/cpp",
-    ".cs": "text/csharp", ".rb": "text/ruby", ".php": "text/php",
-    ".dart": "text/dart", ".sh": "text/shell", ".bash": "text/shell",
-    ".sql": "text/sql", ".vue": "text/vue",
-    ".html": "text/html", ".htm": "text/html",
-    ".css": "text/css", ".scss": "text/css", ".sass": "text/css", ".less": "text/css",
-    ".md": "text/markdown", ".mdx": "text/markdown", ".rst": "text/rst",
-    ".yaml": "text/yaml", ".yml": "text/yaml",
-    ".json": "text/json", ".jsonc": "text/json",
-    ".toml": "text/toml", ".ini": "text/ini", ".cfg": "text/cfg",
-    ".xml": "text/xml", ".proto": "text/protobuf",
-    ".graphql": "text/graphql", ".gql": "text/graphql",
-    ".tf": "text/terraform", ".hcl": "text/hcl", ".nix": "text/nix",
-    ".ipynb": "text/jupyter",
-    ".txt": "text/plain", ".text": "text/plain",
-    ".csv": "text/csv", ".tsv": "text/tsv",
-    ".lock": "text/plain", ".sum": "text/plain",
-    ".env": "text/env", ".envrc": "text/env",
-    ".png": "image/png", ".jpg": "image/jpeg", ".jpeg": "image/jpeg",
-    ".gif": "image/gif", ".svg": "image/svg+xml", ".webp": "image/webp",
-    ".ico": "image/x-icon", ".pdf": "application/pdf",
-    ".zip": "application/zip", ".tar": "application/tar",
-    ".gz": "application/gzip", ".mp4": "video/mp4",
 }
 
 SECRET_BASENAMES = {
@@ -143,52 +97,7 @@ def sha256_file(path: Path, max_bytes: int = 10 * 1024 * 1024) -> Optional[str]:
         return None
 
 
-def detect_media_type(path: Path) -> str:
-    return MEDIA_TYPES.get(path.suffix.lower(), "application/octet-stream")
 
-
-def is_binary(path: Path) -> bool:
-    if path.suffix.lower() in BINARY_EXTS:
-        return True
-    return not detect_media_type(path).startswith("text/")
-
-
-def classify_role(rel: Path) -> str:
-    name = rel.name
-    if name == "SKILL.md":
-        return "agent-skill"
-    if name == "SOUL.md":
-        return "agent-soul"
-    if name in ("pyproject.toml", "package.json", "Cargo.toml", "go.mod", "requirements.txt"):
-        return "configuration"
-    if name in ("Dockerfile", "docker-compose.yml", "docker-compose.yaml",
-                "compose.yml", "compose.yaml", "Chart.yaml"):
-        return "deployment-definition"
-    if name.endswith((".md", ".rst", ".txt")) and len(rel.parts) == 1:
-        return "documentation"
-    n = rel.parts[0] if rel.parts else ""
-    if n in ("docs", "documentation"):
-        return "documentation"
-    if n in ("test", "tests", "__tests__"):
-        return "reference"
-    if n in ("scripts", "tools", "bin"):
-        return "executable-script"
-    return "unknown"
-
-
-def scan_secrets(path: Path) -> Tuple[str, int]:
-    if not HAVE_DETECT_SECRETS:
-        return ("not-scanned", 0)
-    try:
-        findings = list(_ds_scan_file(str(path)))
-        if not findings:
-            return ("clean", 0)
-        high = any(getattr(f, "confidence", "").lower() == "high" for f in findings)
-        if high:
-            return ("blocked", len(findings))
-        return ("flagged", len(findings))
-    except Exception:
-        return ("not-scanned", 0)
 
 
 def walk_repo_files(raw_root: Path) -> list:
@@ -281,20 +190,20 @@ def main() -> int:
             if artifact_id not in missing_artifacts:
                 continue
             acquisition_start = datetime.now(timezone.utc).isoformat()
-            sec_status, sec_count = scan_secrets(p)
+            sec_status, sec_count = file_policy.scan_secrets(p)
             artifact = {
                 "schema": "artifact/v1",
                 "schema_version": "1.0.0",
                 "record_id": artifact_id,
                 "artifact_id": artifact_id,
                 "content_sha256": h,
-                "media_type": detect_media_type(p),
+                "media_type": file_policy.detect_media_type(p),
                 "size_bytes": p.stat().st_size,
-                "artifact_role": classify_role(rel),
-                "parse_status": "valid" if not is_binary(p) else "binary",
+                "artifact_role": file_policy.classify_role(rel),
+                "parse_status": "valid" if not file_policy.is_binary(p) else "binary",
                 "security_status": sec_status,
                 "security_finding_count": sec_count,
-                "index_policy": "include" if not is_binary(p) else "metadata-only",
+                "index_policy": "include" if not file_policy.is_binary(p) else "metadata-only",
                 "created_at": acquisition_start,
                 "generator": GENERATOR,
                 "generator_version": GENERATOR_VERSION,
