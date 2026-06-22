@@ -21,6 +21,8 @@ import os
 import sys
 from pathlib import Path
 
+from codex_vault_pipeline.ingest.batch import load_batch_config, validate_batch_config
+from codex_vault_pipeline.ingest.checkpoints import list_checkpoints
 from codex_vault_pipeline.paths import (
     ENV_VAR,
     add_dry_run_arg,
@@ -182,6 +184,62 @@ def cmd_benchmark(args: argparse.Namespace) -> int:
     return _run_legacy("codex_vault_pipeline.legacy.run_retrieval_benchmarks", argv)
 
 
+@subcommand("ingest-batch", help="Load and validate a batch file (--dry-run required until real ingest is wired)")
+def cmd_ingest_batch(args: argparse.Namespace) -> int:
+    """Load a batch file, validate it, and (in dry-run mode) print a summary."""
+    if not is_dry_run(args):
+        print(
+            "ERROR: real ingest execution is not wired yet; rerun with --dry-run",
+            file=sys.stderr,
+        )
+        return 2
+
+    batch_path = args.batch_file
+    if not batch_path.is_file():
+        print(f"ERROR: batch file not found: {batch_path}", file=sys.stderr)
+        return 2
+
+    try:
+        config = load_batch_config(batch_path)
+    except Exception as exc:
+        print(f"ERROR: failed to load batch file: {exc}", file=sys.stderr)
+        return 2
+
+    validation_errors = validate_batch_config(config)
+    print(f"run_id:     {config.run_id}")
+    print(f"sources:    {len(config.sources)}")
+    if validation_errors:
+        print(f"validation: FAILED ({len(validation_errors)} errors)")
+        for err in validation_errors:
+            print(f"  - {err}")
+        return 1
+    else:
+        print("validation: PASSED")
+        return 0
+
+
+@subcommand("ingest-status", help="Show checkpoint status for a batch run")
+def cmd_ingest_status(args: argparse.Namespace) -> int:
+    """Read checkpoints for a run and print a compact status summary."""
+    paths = require_vault_root(args)
+    checkpoints = list_checkpoints(paths.vault_root, args.run_id)
+
+    print(f"run_id:      {args.run_id}")
+    print(f"checkpoints: {len(checkpoints)}")
+
+    for cp in checkpoints:
+        source_id = cp.get("source_id", "?")
+        status = cp.get("status", "?")
+        stage = cp.get("stage", "?")
+        errors = cp.get("errors", [])
+        if errors:
+            print(f"  {source_id}: {status} (stage={stage}, errors={len(errors)})")
+        else:
+            print(f"  {source_id}: {status} (stage={stage})")
+
+    return 0
+
+
 # --- main ----------------------------------------------------------------
 
 
@@ -214,6 +272,12 @@ def build_parser() -> argparse.ArgumentParser:
         elif name == "validate":
             sp.add_argument("--strict", action="store_true",
                             help="Enable strict validator mode")
+        elif name == "ingest-batch":
+            sp.add_argument("--batch-file", type=Path, required=True,
+                            help="Path to batch YAML/JSON file")
+        elif name == "ingest-status":
+            sp.add_argument("--run-id", required=True,
+                            help="Run identifier to query")
     return ap
 
 
