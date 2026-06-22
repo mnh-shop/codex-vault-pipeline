@@ -1,0 +1,174 @@
+run_id: full-43-unit-extraction
+sources:
+- source_id: github:0xrsydn/nix-hermes-agent
+  repo_url: ''
+  metadata:
+    batch: full-43-reingest
+- source_id: github:42-evey/hermes-plugins
+  repo_url: ''
+  metadata:
+    batch: full-43-reingest
+- source_id: github:AMAP-ML/SkillClaw
+  repo_url: ''
+  metadata:
+    batch: full-43-reingest
+- source_id: github:Agent-Field/SWE-AF
+  repo_url: ''
+  metadata:
+    batch: full-43-reingest
+- source_id: github:Agent-Field/af-deep-research
+  repo_url: ''
+  metadata:
+    batch: full-43-reingest
+- source_id: github:Agent-Field/agentfield
+  repo_url: ''
+  metadata:
+    batch: full-43-reingest
+- source_id: github:Agent-Field/cloudsecurity-af
+  repo_url: ''
+  metadata:
+    batch: full-43-reingest
+- source_id: github:Agent-Field/plandb
+  repo_url: ''
+  metadata:
+    batch: full-43-reingest
+- source_id: github:Agent-Field/pr-af
+  repo_url: ''
+  metadata:
+    batch: full-43-reingest
+- source_id: github:Agent-Field/reels-af
+  repo_url: ''
+  metadata:
+    batch: full-43-reingest
+- source_id: github:Agent-Field/sec-af
+  repo_url: ''
+  metadata:
+    batch: full-43-reingest
+- source_id: github:Alibaba-NLP/DeepResearch
+  repo_url: ''
+  metadata:
+    batch: full-43-reingest
+- source_id: github:AxDSan/Mnemosyne
+  repo_url: ''
+  metadata:
+    batch: full-43-reingest
+- source_id: github:Crustocean/hermes-agent-template
+  repo_url: ''
+  metadata:
+    batch: full-43-reingest
+- source_id: github:NousResearch/autonovel
+  repo_url: ''
+  metadata:
+    batch: full-43-reingest
+- source_id: github:NousResearch/hermes-agent
+  repo_url: ''
+  metadata:
+    batch: full-43-reingest
+- source_id: github:NousResearch/hermes-agent-self-evolution
+  repo_url: ''
+  metadata:
+    batch: full-43-reingest
+- source_id: github:NousResearch/hermes-paperclip-adapter
+  repo_url: ''
+  metadata:
+    batch: full-43-reingest
+- source_id: github:NousResearch/tinker-atropos
+  repo_url: ''
+  metadata:
+    batch: full-43-reingest
+- source_id: github:RUCAIBox/ManuSearch
+  repo_url: ''
+  metadata:
+    batch: full-43-reingest
+- source_id: github:RUCAIBox/SimpleDeepSearcher
+  repo_url: ''
+  metadata:
+    batch: full-43-reingest
+- source_id: github:Zie619/n8n-workflows
+  repo_url: ''
+  metadata:
+    batch: full-43-reingest
+- source_id: github:amanning3390/flowstate-qmd
+  repo_url: ''
+  metadata:
+    batch: full-43-reingest
+- source_id: github:arc53/DocsGPT
+  repo_url: ''
+  metadata:
+    batch: full-43-reingest
+- source_id: github:builderz-labs/mission-control
+  repo_url: ''
+  metadata:
+    batch: full-43-reingest
+- source_id: github:bytedance/deer-flow
+  repo_url: ''
+  metadata:
+    batch: full-43-reingest
+- source_id: github:czlonkowski/n8n-skills
+  repo_url: ''
+  metadata:
+    batch: full-43-reingest
+- source_id: github:enescingoz/awesome-n8n-templates
+  repo_url: ''
+  metadata:
+    batch: full-43-reingest
+- source_id: github:gs-ai/SYNINT
+  repo_url: ''
+  metadata:
+    batch: full-43-reingest
+- source_id: github:jivoi/awesome-osint
+  repo_url: ''
+  metadata:
+    batch: full-43-reingest
+- source_id: github:langchain-ai/deep_research_from_scratch
+  repo_url: ''
+  metadata:
+    batch: full-43-reingest
+- source_id: github:langchain-ai/open_deep_research
+  repo_url: ''
+  metadata:
+    batch: full-43-reingest
+- source_id: github:lockfale/OSINT-Framework
+  repo_url: ''
+  metadata:
+    batch: full-43-reingest
+- source_id: github:n8n-io/n8n-docs
+  repo_url: ''
+  metadata:
+    batch: full-43-reingest
+- source_id: github:nusquama/n8nworkflows.xyz
+  repo_url: ''
+  metadata:
+    batch: full-43-reingest
+- source_id: github:outsourc-e/hermes-workspace
+  repo_url: ''
+  metadata:
+    batch: full-43-reingest
+- source_id: github:pingchesu/hermes-curator-evolver
+  repo_url: ''
+  metadata:
+    batch: full-43-reingest
+- source_id: github:vectorize-io/hindsight
+  repo_url: ''
+  metadata:
+    batch: full-43-reingest
+- source_id: github:wassupjay/n8n-free-templates
+  repo_url: ''
+  metadata:
+    batch: full-43-reingest
+- source_id: github:witt3rd/oh-my-hermes
+  repo_url: ''
+  metadata:
+    batch: full-43-reingest
+- source_id: github:wondelai/skills
+  repo_url: ''
+  metadata:
+    batch: full-43-reingest
+- source_id: github:xmbshwll/hermes-agent-docker
+  repo_url: ''
+  metadata:
+    batch: full-43-reingest
+- source_id: github:zilliztech/deep-searcher
+  repo_url: ''
+  metadata:
+    batch: full-43-reingest

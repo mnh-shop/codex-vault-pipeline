@@ -61,19 +61,46 @@ TARGET_SOURCES = {
     "github:Agent-Field/agentfield",
 }
 
-# Safe source → raw directory name mapping
-SAFE_TO_RAW = {
+# Safe source → raw directory name mapping.
+# Build dynamically from the vault scratch raw/ directory.
+# Each raw/ subdirectory maps to a safe source_id by the common
+# naming convention: the raw dir name appears in the source path.
+# We build a reverse lookup: find every source_id whose artifacts
+# reference a given raw subdir, then cache by safe source_id.
+# (Pre-populated for the 5 original targets as a fallback.)
+DEFAULT_SAFE_TO_RAW = {
     "github_Alibaba-NLP_DeepResearch": "DeepResearch",
     "github_langchain-ai_open_deep_research": "open_deep_research",
     "github_n8n-io_n8n-docs": "n8n-docs",
     "github_NousResearch_hermes-agent": "hermes-agent",
     "github_Agent-Field_agentfield": "agentfield",
 }
+SAFE_TO_RAW = dict(DEFAULT_SAFE_TO_RAW)
 
 
 def load_json(path):
     with open(path) as f:
         return json.load(f)
+
+
+def load_batch_config(path):
+    """Load a batch config file (JSON or YAML)."""
+    text = Path(path).read_text().strip()
+    if not text:
+        raise ValueError(f"Empty batch config: {path}")
+    # Try JSON first
+    if text.startswith("{"):
+        return json.loads(text)
+    # Try YAML
+    try:
+        import yaml
+        return yaml.safe_load(text)
+    except ImportError:
+        # No YAML available -- is it valid JSON wrapped with list?
+        try:
+            return json.loads(text)
+        except json.JSONDecodeError:
+            raise ValueError(f"Batch config must be JSON or YAML (pyyaml not installed): {path}")
 
 
 def safe_source_id(sid: str) -> str:
@@ -84,6 +111,7 @@ def resolve_raw_path(source_id: str, source_path: str) -> Path:
     """Resolve raw content path from scratch raw/ snapshot."""
     safe = safe_source_id(source_id)
     raw_name = SAFE_TO_RAW.get(safe, safe)
+
     # source_path is like "raw/n8n-docs/docs/foo.md" — strip the raw/<name>/ prefix
     # Try relative first
     rel = source_path
@@ -94,6 +122,56 @@ def resolve_raw_path(source_id: str, source_path: str) -> Path:
     if len(parts) > 1 and parts[0] == raw_name:
         rel = parts[1]
     return RAW_BASE / raw_name / rel
+
+
+def build_safe_to_raw_mapping(raw_base: Path, artifact_dir: Path):
+    """Dynamically build safe→raw directory mapping from artifact source_paths.
+
+    Scans a sample of artifacts to discover which raw subdirectory name
+    corresponds to each source_id.  This avoids maintaining a static 43-entry
+    mapping.
+    """
+    mapping = {}
+    # Collect (safe_source_id, candidate_raw_name) from artifacts
+    for art_dir in sorted(artifact_dir.iterdir()):
+        json_files = list(art_dir.glob("*.json"))
+        if not json_files:
+            continue
+        art = load_json(json_files[0])
+        sid = art.get("source_id", "")
+        if not sid:
+            continue
+        sp = art.get("source_path", "")
+        # source_path is like "raw/<raw_name>/rest/of/path"
+        if not sp.startswith("raw/"):
+            continue
+        raw_name = sp.split("/")[1]  # second component after "raw/"
+        safe = safe_source_id(sid)
+        mapping[safe] = raw_name
+        break  # one sample from one artifact is enough per source
+
+    # For unvisited sources (only one artifact processed above), scan all
+    # artifact dirs fully.
+    seen_sids = set()
+    for art_dir in sorted(artifact_dir.iterdir()):
+        json_files = list(art_dir.glob("*.json"))
+        if not json_files:
+            continue
+        art = load_json(json_files[0])
+        sid = art.get("source_id", "")
+        if not sid:
+            continue
+        safe = safe_source_id(sid)
+        if safe in mapping:
+            seen_sids.add(safe)
+            continue
+        sp = art.get("source_path", "")
+        if sp.startswith("raw/"):
+            raw_name = sp.split("/")[1]
+            mapping[safe] = raw_name
+            seen_sids.add(safe)
+
+    return mapping
 
 
 def build_occurrence_index(occurrence_dir, source_id):
@@ -141,8 +219,8 @@ def parse_args():
         description="Run deterministic unit extraction on target sources"
     )
     parser.add_argument(
-        "--scratch-root", type=Path, default=None,
-        help="Scratch vault root (default: VAULT/.runtime/scratch)"
+        "--output-dir", type=Path, default=None,
+        help="Write output units here (default: existing scratch .runtime/units)"
     )
     parser.add_argument(
         "--batch-file", type=Path, default=None,
@@ -156,18 +234,35 @@ def main():
     run_id = f"6s-unit-extract-{datetime.now(timezone.utc).strftime('%Y%m%d-%H%M%S')}"
     now = datetime.now(timezone.utc).isoformat()
 
-    # Override scratch root if provided
-    global SCRATCH_RT, ARTIFACT_DIR, OCCURRENCE_DIR, RAW_BASE, UNIT_DIR
-    if args.scratch_root is not None:
-        SCRATCH_RT = args.scratch_root / ".runtime" if not args.scratch_root.name == ".runtime" else args.scratch_root
-        ARTIFACT_DIR = SCRATCH_RT / "artifacts"
-        OCCURRENCE_DIR = SCRATCH_RT / "occurrences"
-        RAW_BASE = args.scratch_root if args.scratch_root.name != ".runtime" else args.scratch_root.parent
-        RAW_BASE = RAW_BASE / "raw" if (RAW_BASE / "raw").exists() else RAW_BASE
-        UNIT_DIR = SCRATCH_RT / "units"
+    # Override unit output directory if provided (artifacts/occurrences still
+    # read from the existing vault scratch tree)
+    if args.output_dir is not None:
+        global UNIT_DIR
+        UNIT_DIR = args.output_dir.resolve()
+        UNIT_DIR.mkdir(parents=True, exist_ok=True)
+
+    # Resolve target sources: batch file overrides the built-in 5
+    global TARGET_SOURCES, SAFE_TO_RAW
+    if args.batch_file is not None:
+        if not args.batch_file.exists():
+            print(f"[{run_id}] Batch file not found: {args.batch_file}")
+            sys.exit(1)
+        batch = load_batch_config(args.batch_file)
+        sources_list = batch.get("sources", [])
+        TARGET_SOURCES = {s["source_id"] for s in sources_list if "source_id" in s}
+        run_id = batch.get("run_id", run_id)
+        print(f"[{run_id}] Loaded {len(TARGET_SOURCES)} sources from {args.batch_file}")
+
+    # Build dynamic safe→raw mapping for raw path resolution
+    SAFE_TO_RAW.update(build_safe_to_raw_mapping(RAW_BASE, ARTIFACT_DIR))
+    no_raw = [s for s in sorted(TARGET_SOURCES) if safe_source_id(s) not in SAFE_TO_RAW]
+    if no_raw:
+        print(f"[{run_id}] WARNING: No raw directory mapping for {len(no_raw)} sources:")
+        for s in no_raw:
+            print(f"         {s}")
 
     # Phase 1: Collect all artifacts for target sources
-    print(f"[{run_id}] Collecting artifacts for 5 target sources...")
+    print(f"[{run_id}] Collecting artifacts for {len(TARGET_SOURCES)} target sources...")
     artifacts_by_source = defaultdict(list)
     total_checked = 0
 
