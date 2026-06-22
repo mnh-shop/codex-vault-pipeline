@@ -1,0 +1,29 @@
+# 5-source validation batch for unit_extractor testing.
+# Run with: python3 -m codex_vault_pipeline.cli.ingest \
+#     --vault-root /Users/admin1/agent-brain/codex-vault \
+#     --batch examples/batch-5source-validation.yaml
+#
+# Or manually with:
+#     python3 scripts/run_5source_unit_extraction.py
+run_id: "unit-extractor-5source-validation"
+sources:
+  - source_id: "github:Agent-Field/agentfield"
+    repo_url: "https://github.com/Agent-Field/agentfield"
+    metadata:
+      test: "unit-extractor-validation"
+  - source_id: "github:Alibaba-NLP/DeepResearch"
+    repo_url: "https://github.com/Alibaba-NLP/DeepResearch"
+    metadata:
+      test: "unit-extractor-validation"
+  - source_id: "github:langchain-ai/open_deep_research"
+    repo_url: "https://github.com/langchain-ai/open_deep_research"
+    metadata:
+      test: "unit-extractor-validation"
+  - source_id: "github:n8n-io/n8n-docs"
+    repo_url: "https://github.com/n8n-io/n8n-docs"
+    metadata:
+      test: "unit-extractor-validation"
+  - source_id: "github:NousResearch/hermes-agent"
+    repo_url: "https://github.com/NousResearch/hermes-agent"
+    metadata:
+      test: "unit-extractor-validation"
