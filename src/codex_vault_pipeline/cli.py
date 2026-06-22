@@ -13,6 +13,7 @@ Usage:
     codex-vault-ingest    --vault-root /path/to/codex-vault --github URL [--dry-run]
     codex-vault-build-indexes --vault-root /path/to/codex-vault [--no-vector]
     codex-vault-benchmark --vault-root /path/to/codex-vault [--quick]
+    codex-vault-query-units --vault-root /path/to/codex-vault --query <text> [--limit N] [--source-id SID] [--json]
 """
 from __future__ import annotations
 
@@ -240,6 +241,65 @@ def cmd_ingest_status(args: argparse.Namespace) -> int:
     return 0
 
 
+@subcommand("query-units", help="Search the unit FTS index (read-only)")
+def cmd_query_units(args: argparse.Namespace) -> int:
+    """Query the units SQLite FTS5 index and print results."""
+    from codex_vault_pipeline.index.sqlite_fts import query_units_fts
+
+    db_path = Path(args.vault_root) / ".runtime" / "indexes" / "units-fts.sqlite"
+
+    if not db_path.is_file():
+        print(
+            f"ERROR: FTS index not found at {db_path}",
+            file=sys.stderr,
+        )
+        print("HINT: Build the index first with the unit extractor pipeline.", file=sys.stderr)
+        return 1
+
+    query = args.query.strip()
+    if not query:
+        print("ERROR: --query must be a non-empty search string.", file=sys.stderr)
+        return 2
+
+    try:
+        hits = query_units_fts(db_path, query, limit=args.limit)
+    except Exception as exc:
+        print(f"ERROR: query failed: {exc}", file=sys.stderr)
+        return 1
+
+    # Optional source_id filter (post-query to avoid DB schema change)
+    if args.source_id:
+        hits = [h for h in hits if h.get("source_id") == args.source_id]
+
+    if args.json:
+        import json
+        json.dump(hits, sys.stdout, indent=2, default=str)
+        sys.stdout.write("\n")
+        return 0
+
+    if not hits:
+        print("No results.")
+        return 0
+
+    for i, h in enumerate(hits, 1):
+        sid = h.get("source_id", "")
+        utype = h.get("unit_type", "")
+        spath = h.get("source_path", "")
+        title = h.get("title", "")
+        preview = (h.get("text_preview") or "").replace("\n", " ")
+        # Truncate preview for terminal
+        if len(preview) > 80:
+            preview = preview[:77] + "..."
+        print(f"{i:3d}. [{sid}] [{utype}]")
+        print(f"     path:  {spath}")
+        print(f"     title: {title}")
+        if preview:
+            print(f"     match: {preview}")
+        print()
+
+    return 0
+
+
 # --- main ----------------------------------------------------------------
 
 
@@ -278,6 +338,15 @@ def build_parser() -> argparse.ArgumentParser:
         elif name == "ingest-status":
             sp.add_argument("--run-id", required=True,
                             help="Run identifier to query")
+        elif name == "query-units":
+            sp.add_argument("--query", required=True,
+                            help="FTS5 search query string")
+            sp.add_argument("--limit", type=int, default=10,
+                            help="Maximum results (default: 10)")
+            sp.add_argument("--source-id", default=None,
+                            help="Filter by exact source_id, e.g. github:NousResearch/hermes-agent")
+            sp.add_argument("--json", action="store_true",
+                            help="Output as JSON array instead of readable format")
     return ap
 
 
