@@ -869,7 +869,7 @@ def _v2_repomix_plan(args: argparse.Namespace) -> int:
 
 
 def _v2_repomix_run(args: argparse.Namespace) -> int:
-    """Run Repomix pilot."""
+    """Run Repomix for all sources."""
     from pathlib import Path
     from codex_vault_pipeline.v2.repomix_adapter import RepomixAdapter
     from codex_vault_pipeline.v2.manifest import PilotManifest, RepoPackManifest
@@ -890,10 +890,20 @@ def _v2_repomix_run(args: argparse.Namespace) -> int:
     
     print(f"Repomix available: {availability['repomix_version']}")
     
-    # Load pilot manifest
-    manifest_path = paths.runtime_root / "repo-packs" / "manifests" / "phase_05a_repomix_pilot.yaml"
+    # Load manifest - prefer full manifest, fallback to pilot
+    full_manifest_path = paths.runtime_root / "repo-packs" / "manifests" / "v2_full_repomix_manifest.yaml"
+    pilot_manifest_path = paths.runtime_root / "repo-packs" / "manifests" / "phase_05a_repomix_pilot.yaml"
+    
+    if full_manifest_path.exists():
+        manifest_path = full_manifest_path
+    elif pilot_manifest_path.exists():
+        manifest_path = pilot_manifest_path
+    else:
+        print("ERROR: No manifest found. Run 'v2 repomix plan' first.", file=sys.stderr)
+        return 1
+    
     if not manifest_path.exists():
-        print("ERROR: Pilot manifest not found. Run 'v2 repomix plan' first.", file=sys.stderr)
+        print(f"ERROR: Manifest not found at {manifest_path}", file=sys.stderr)
         return 1
     
     import yaml
@@ -903,7 +913,7 @@ def _v2_repomix_run(args: argparse.Namespace) -> int:
         source = RepoPackManifest(**source_data)
         manifest.add_source(source)
     
-    print(f"Pilot sources: {len(manifest.sources)}")
+    print(f"Total sources: {len(manifest.sources)}")
     
     # Run Repomix for each source
     results = []
@@ -937,7 +947,7 @@ def _v2_repomix_run(args: argparse.Namespace) -> int:
     successful = sum(1 for r in results if r.success)
     failed = sum(1 for r in results if not r.success)
     
-    print(f"\n=== Pilot Summary ===")
+    print(f"\n=== Repomix Summary ===")
     print(f"Total sources: {len(results)}")
     print(f"Successful: {successful}")
     print(f"Failed: {failed}")
@@ -1237,7 +1247,18 @@ def _v2_packs_index(args: argparse.Namespace) -> int:
         print(f"ERROR: {exc}", file=sys.stderr)
         return 1
 
-    manifest_path = paths.runtime_root / "repo-packs" / "manifests" / "phase_05b_repomix_pack_manifest.json"
+    # Load manifest - prefer full manifest, fallback to pilot
+    full_manifest_path = paths.runtime_root / "repo-packs" / "manifests" / "v2_full_pack_manifest.json"
+    pilot_manifest_path = paths.runtime_root / "repo-packs" / "manifests" / "phase_05b_repomix_pack_manifest.json"
+    
+    if full_manifest_path.exists():
+        manifest_path = full_manifest_path
+    elif pilot_manifest_path.exists():
+        manifest_path = pilot_manifest_path
+    else:
+        print(f"ERROR: No pack manifest found", file=sys.stderr)
+        return 1
+    
     if not manifest_path.exists():
         print(f"ERROR: Pack manifest not found: {manifest_path}", file=sys.stderr)
         return 1
