@@ -667,6 +667,16 @@ def cmd_v2(args: argparse.Namespace) -> int:
         else:
             print("ERROR: context requires subaction: schema", file=sys.stderr)
             return 2
+    elif args.v2_action == "packs":
+        if args.v2_subaction == "index":
+            return _v2_packs_index(args)
+        elif args.v2_subaction == "stats":
+            return _v2_packs_stats(args)
+        elif args.v2_subaction == "search":
+            return _v2_packs_search(args)
+        else:
+            print("ERROR: packs requires subaction: index, stats, or search", file=sys.stderr)
+            return 2
     else:
         print(f"ERROR: unknown v2 action: {args.v2_action}", file=sys.stderr)
         return 2
@@ -1155,6 +1165,186 @@ The schema includes validation functions to ensure context packs are well-formed
     return 0
 
 
+# --- v2 packs commands ---------------------------------------------------
+
+
+def _v2_packs_index(args: argparse.Namespace) -> int:
+    """Index Repomix packs into v2 SQLite/FTS."""
+    import json
+    import time
+    from pathlib import Path
+    from codex_vault_pipeline.v2.pack_index import get_db, index_pack, rebuild_fts, parse_repomix_pack
+
+    try:
+        paths = require_vault_root(args)
+    except SystemExit as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        return 1
+
+    manifest_path = paths.runtime_root / "repo-packs" / "manifests" / "phase_05b_repomix_pack_manifest.json"
+    if not manifest_path.exists():
+        print(f"ERROR: Pack manifest not found: {manifest_path}", file=sys.stderr)
+        return 1
+
+    with open(manifest_path) as f:
+        manifest = json.load(f)
+
+    db_path = paths.runtime_root / "indexes" / "v2" / "repo-packs.sqlite"
+    conn = get_db(db_path)
+
+    run_id = f"v2_packs_{int(time.time())}"
+    conn.execute(
+        "INSERT INTO pack_index_runs (run_id, started_at) VALUES (?, ?)",
+        (run_id, time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())),
+    )
+    conn.commit()
+
+    packs = manifest.get("packs", [])
+    if args.pilot:
+        packs = packs[:5]  # pilot mode: first 5
+
+    total_files = 0
+    total_chunks = 0
+    errors = 0
+    warnings = 0
+
+    for pack_info in packs:
+        source_id = pack_info["source_id"]
+        pack_path = pack_info["pack_path"]
+        pack_id = source_id.replace(":", "_").replace("/", "_")
+
+        print(f"Indexing: {source_id} ...")
+
+        try:
+            parsed = parse_repomix_pack(
+                pack_path=pack_path,
+                source_id=source_id,
+                pack_id=pack_id,
+                repo_url=pack_info.get("source_url"),
+                local_path=pack_info.get("source_url") if pack_info.get("source_url", "").startswith("/") else None,
+                revision=pack_info.get("revision"),
+            )
+            stats = index_pack(conn, parsed)
+            total_files += stats["files_indexed"]
+            total_chunks += stats["chunks_indexed"]
+            errors += stats["errors"]
+            warnings += stats["warnings"]
+            print(f"  files: {stats['files_indexed']}, chunks: {stats['chunks_indexed']}")
+        except Exception as e:
+            print(f"  ERROR: {e}", file=sys.stderr)
+            errors += 1
+
+    rebuild_fts(conn)
+
+    conn.execute(
+        """UPDATE pack_index_runs
+           SET completed_at=?, packs_indexed=?, files_indexed=?,
+               chunks_indexed=?, errors=?, warnings=?
+           WHERE run_id=?""",
+        (
+            time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+            len(packs), total_files, total_chunks, errors, warnings, run_id,
+        ),
+    )
+    conn.commit()
+    conn.close()
+
+    print(f"\n=== v2 Pack Index Summary ===")
+    print(f"Packs indexed: {len(packs)}")
+    print(f"Files indexed: {total_files}")
+    print(f"Chunks indexed: {total_chunks}")
+    print(f"FTS rows: {total_chunks}")
+    print(f"Errors: {errors}")
+    print(f"Warnings: {warnings}")
+    print(f"DB path: {db_path}")
+    print(f"DB size: {db_path.stat().st_size / 1024 / 1024:.2f} MB")
+
+    return 1 if errors else 0
+
+
+def _v2_packs_stats(args: argparse.Namespace) -> int:
+    """Print v2 pack index statistics."""
+    from pathlib import Path
+    from codex_vault_pipeline.v2.pack_index import get_db, get_stats
+
+    try:
+        paths = require_vault_root(args)
+    except SystemExit as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        return 1
+
+    db_path = paths.runtime_root / "indexes" / "v2" / "repo-packs.sqlite"
+    if not db_path.exists():
+        print(f"ERROR: v2 pack index not found: {db_path}", file=sys.stderr)
+        return 1
+
+    conn = get_db(db_path)
+    stats = get_stats(conn)
+    conn.close()
+
+    print("=== v2 Pack Index Stats ===")
+    print(f"Total packs: {stats['total_packs']}")
+    print(f"Total files: {stats['total_files']}")
+    print(f"Total chunks: {stats['total_chunks']}")
+    print(f"FTS rows: {stats['fts_rows']}")
+    print(f"\nPacks by source:")
+    for src, cnt in stats.get("packs_by_source", {}).items():
+        print(f"  {src}: {cnt}")
+    print(f"\nFiles by role:")
+    for role, cnt in stats.get("files_by_role", {}).items():
+        print(f"  {role}: {cnt}")
+    print(f"\nChunks by role:")
+    for role, cnt in stats.get("chunks_by_role", {}).items():
+        print(f"  {role}: {cnt}")
+    print(f"\nChunks by priority:")
+    for pri, cnt in stats.get("chunks_by_priority", {}).items():
+        print(f"  {pri}: {cnt}")
+
+    return 0
+
+
+def _v2_packs_search(args: argparse.Namespace) -> int:
+    """Search v2 pack FTS index."""
+    from pathlib import Path
+    from codex_vault_pipeline.v2.pack_index import get_db, search_fts
+
+    try:
+        paths = require_vault_root(args)
+    except SystemExit as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        return 1
+
+    query = getattr(args, "query", None)
+    if not query:
+        print("ERROR: --query is required for packs search", file=sys.stderr)
+        return 1
+
+    limit = getattr(args, "limit", 5)
+    source_id = getattr(args, "source_id", None)
+
+    db_path = paths.runtime_root / "indexes" / "v2" / "repo-packs.sqlite"
+    if not db_path.exists():
+        print(f"ERROR: v2 pack index not found: {db_path}", file=sys.stderr)
+        return 1
+
+    conn = get_db(db_path)
+    results = search_fts(conn, query, limit=limit, source_id=source_id)
+    conn.close()
+
+    if not results:
+        print("No results found.")
+        return 0
+
+    print(f"=== v2 Pack Search: {query} ===\n")
+    for i, r in enumerate(results, 1):
+        print(f"{i}. [{r['source_id']}] {r['path']}")
+        print(f"   role: {r['artifact_role']}  priority: {r['priority_class']}  rank: {r['rank']:.4f}")
+        print(f"   snippet: {r['snippet'][:200]}")
+        print()
+
+    return 0
+
+
 # --- main ----------------------------------------------------------------
 
 
@@ -1212,12 +1402,18 @@ def build_parser() -> argparse.ArgumentParser:
             sp.add_argument("vector_action", choices=["doctor", "info"],
                             help="Action: doctor (diagnostics) or info (print vector info)")
         elif name == "v2":
-            sp.add_argument("v2_action", choices=["doctor", "repomix", "deepwiki", "n8n", "retrieval", "context"],
-                            help="Action: doctor, repomix, deepwiki, n8n, retrieval, or context")
+            sp.add_argument("v2_action", choices=["doctor", "repomix", "deepwiki", "n8n", "retrieval", "context", "packs"],
+                            help="Action: doctor, repomix, deepwiki, n8n, retrieval, context, or packs")
             sp.add_argument("v2_subaction", nargs="?", default=None,
-                            help="Sub-action (e.g., plan, run, sanity, coverage, policy, schema)")
+                            help="Sub-action (e.g., plan, run, sanity, coverage, policy, schema, index, stats, search)")
             sp.add_argument("--pilot", action="store_true",
                             help="Run in pilot mode")
+            sp.add_argument("--query", default=None,
+                            help="Search query for packs search")
+            sp.add_argument("--limit", type=int, default=5,
+                            help="Max results for packs search (default: 5)")
+            sp.add_argument("--source-id", default=None,
+                            help="Filter by source_id for packs search")
     return ap
 
 

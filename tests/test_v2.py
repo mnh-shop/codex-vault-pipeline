@@ -274,3 +274,369 @@ class TestContextPackSchema:
         assert RetrievalMethod.FTS.value == "fts"
         assert RetrievalMethod.VECTOR.value == "vector"
         assert RetrievalMethod.REPOMIX.value == "repomix"
+
+
+# --- v2 pack index tests ---
+
+
+class TestPackIndexSchema:
+    """Tests for pack schema creation."""
+
+    def test_schema_creation(self, tmp_path):
+        """Test database schema creation."""
+        from codex_vault_pipeline.v2.pack_index import get_db
+        db_path = tmp_path / "test.sqlite"
+        conn = get_db(db_path)
+
+        # Verify tables exist
+        tables = conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' ORDER BY name"
+        ).fetchall()
+        table_names = {t[0] for t in tables}
+        assert "packs" in table_names
+        assert "pack_files" in table_names
+        assert "pack_chunks" in table_names
+        assert "pack_index_runs" in table_names
+
+        conn.close()
+
+    def test_fts_table_creation(self, tmp_path):
+        """Test FTS5 table creation."""
+        from codex_vault_pipeline.v2.pack_index import get_db
+        db_path = tmp_path / "test.sqlite"
+        conn = get_db(db_path)
+
+        # Verify FTS table exists
+        fts = conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='pack_chunks_fts'"
+        ).fetchone()
+        assert fts is not None
+
+        conn.close()
+
+
+class TestPackParser:
+    """Tests for Repomix pack parser."""
+
+    def test_parse_small_pack(self, tmp_path):
+        """Test parsing a small Repomix pack fixture."""
+        from codex_vault_pipeline.v2.pack_index import parse_repomix_pack
+
+        # Create a small fixture
+        fixture = tmp_path / "output.md"
+        fixture.write_text("""# File Summary
+
+## Purpose
+Test pack.
+
+# Directory Structure
+```
+src/
+  main.py
+  utils.py
+README.md
+```
+
+# Files
+
+## File: src/main.py
+```python
+def hello():
+    print("hello")
+```
+
+## File: src/utils.py
+```python
+def helper():
+    return True
+```
+
+## File: README.md
+```markdown
+# Test Project
+This is a test.
+```
+""")
+
+        result = parse_repomix_pack(
+            pack_path=str(fixture),
+            source_id="github:test/repo",
+            pack_id="test_repo",
+        )
+
+        assert result["pack_meta"]["source_id"] == "github:test/repo"
+        assert result["pack_meta"]["file_count"] == 3
+        assert len(result["files"]) == 3
+        assert len(result["chunks"]) > 0
+
+    def test_artifact_role_classification(self, tmp_path):
+        """Test artifact role classification."""
+        from codex_vault_pipeline.v2.pack_index import parse_repomix_pack
+
+        fixture = tmp_path / "output.md"
+        fixture.write_text("""# Files
+
+## File: SKILL.md
+```markdown
+# Skill
+```
+
+## File: SOUL.md
+```markdown
+# Soul
+```
+
+## File: README.md
+```markdown
+# Readme
+```
+
+## File: src/main.py
+```python
+x = 1
+```
+
+## File: docs/guide.md
+```markdown
+# Guide
+```
+""")
+
+        result = parse_repomix_pack(
+            pack_path=str(fixture),
+            source_id="github:test/repo",
+            pack_id="test_repo",
+        )
+
+        files_by_path = {f["path"]: f for f in result["files"]}
+        assert files_by_path["SKILL.md"]["artifact_role"] == "skill"
+        assert files_by_path["SOUL.md"]["artifact_role"] == "soul"
+        assert files_by_path["README.md"]["artifact_role"] == "readme"
+        assert files_by_path["src/main.py"]["artifact_role"] == "code"
+        assert files_by_path["docs/guide.md"]["artifact_role"] == "docs"
+
+    def test_readme_low_priority(self, tmp_path):
+        """Test README gets low priority."""
+        from codex_vault_pipeline.v2.pack_index import parse_repomix_pack
+
+        fixture = tmp_path / "output.md"
+        fixture.write_text("""# Files
+
+## File: README.md
+```markdown
+# Readme
+```
+""")
+
+        result = parse_repomix_pack(
+            pack_path=str(fixture),
+            source_id="github:test/repo",
+            pack_id="test_repo",
+        )
+
+        assert result["files"][0]["artifact_role"] == "readme"
+        assert result["chunks"][0]["priority_class"] == "low"
+
+    def test_skill_high_priority(self, tmp_path):
+        """Test SKILL.md gets high priority."""
+        from codex_vault_pipeline.v2.pack_index import parse_repomix_pack
+
+        fixture = tmp_path / "output.md"
+        fixture.write_text("""# Files
+
+## File: SKILL.md
+```markdown
+# Skill
+```
+""")
+
+        result = parse_repomix_pack(
+            pack_path=str(fixture),
+            source_id="github:test/repo",
+            pack_id="test_repo",
+        )
+
+        assert result["files"][0]["artifact_role"] == "skill"
+        assert result["chunks"][0]["priority_class"] == "high"
+
+    def test_n8n_workflow_classification(self, tmp_path):
+        """Test n8n workflow JSON classification."""
+        from codex_vault_pipeline.v2.pack_index import parse_repomix_pack
+
+        fixture = tmp_path / "output.md"
+        fixture.write_text("""# Files
+
+## File: workflow.json
+```json
+{
+  "nodes": [{"name": "Start", "type": "n8n-nodes-base.start"}],
+  "connections": {},
+  "active": false,
+  "settings": {}
+}
+```
+""")
+
+        result = parse_repomix_pack(
+            pack_path=str(fixture),
+            source_id="github:test/repo",
+            pack_id="test_repo",
+        )
+
+        assert result["files"][0]["artifact_role"] == "n8n_workflow"
+        assert result["files"][0]["is_workflow_json"] == 1
+        assert result["chunks"][0]["priority_class"] == "high"
+
+
+class TestPackIndexOps:
+    """Tests for pack indexing operations."""
+
+    def test_index_and_search(self, tmp_path):
+        """Test indexing a pack and searching."""
+        from codex_vault_pipeline.v2.pack_index import (
+            get_db, index_pack, rebuild_fts, search_fts, parse_repomix_pack,
+        )
+
+        # Create fixture
+        fixture = tmp_path / "output.md"
+        fixture.write_text("""# Files
+
+## File: src/main.py
+```python
+def hello():
+    print("hello world")
+```
+
+## File: SKILL.md
+```markdown
+# My Skill
+This is a test skill.
+```
+""")
+
+        db_path = tmp_path / "test.sqlite"
+        conn = get_db(db_path)
+
+        parsed = parse_repomix_pack(
+            pack_path=str(fixture),
+            source_id="github:test/repo",
+            pack_id="test_repo",
+        )
+        stats = index_pack(conn, parsed)
+        rebuild_fts(conn)
+
+        assert stats["files_indexed"] == 2
+        assert stats["chunks_indexed"] > 0
+
+        # Search
+        results = search_fts(conn, "hello world", limit=5)
+        assert len(results) > 0
+        assert results[0]["source_id"] == "github:test/repo"
+        assert results[0]["path"] == "src/main.py"
+
+        conn.close()
+
+    def test_get_stats(self, tmp_path):
+        """Test getting index statistics."""
+        from codex_vault_pipeline.v2.pack_index import (
+            get_db, index_pack, get_stats, parse_repomix_pack,
+        )
+
+        fixture = tmp_path / "output.md"
+        fixture.write_text("""# Files
+
+## File: test.py
+```python
+x = 1
+```
+""")
+
+        db_path = tmp_path / "test.sqlite"
+        conn = get_db(db_path)
+
+        parsed = parse_repomix_pack(
+            pack_path=str(fixture),
+            source_id="github:test/repo",
+            pack_id="test_repo",
+        )
+        index_pack(conn, parsed)
+
+        stats = get_stats(conn)
+        assert stats["total_packs"] == 1
+        assert stats["total_files"] == 1
+        assert stats["total_chunks"] > 0
+        assert stats["fts_rows"] > 0
+
+        conn.close()
+
+    def test_search_returns_source_and_path(self, tmp_path):
+        """Test search returns source_id and path."""
+        from codex_vault_pipeline.v2.pack_index import (
+            get_db, index_pack, rebuild_fts, search_fts, parse_repomix_pack,
+        )
+
+        fixture = tmp_path / "output.md"
+        fixture.write_text("""# Files
+
+## File: docs/guide.md
+```markdown
+# Memory System
+This is about memory.
+```
+""")
+
+        db_path = tmp_path / "test.sqlite"
+        conn = get_db(db_path)
+
+        parsed = parse_repomix_pack(
+            pack_path=str(fixture),
+            source_id="github:test/repo",
+            pack_id="test_repo",
+        )
+        index_pack(conn, parsed)
+        rebuild_fts(conn)
+
+        results = search_fts(conn, "memory system", limit=5)
+        assert len(results) > 0
+        assert "source_id" in results[0]
+        assert "path" in results[0]
+        assert "artifact_role" in results[0]
+        assert "priority_class" in results[0]
+        assert "snippet" in results[0]
+
+        conn.close()
+
+
+class TestPackIndexCLI:
+    """Tests for v2 pack CLI commands."""
+
+    def test_v2_packs_help(self):
+        """Test v2 packs CLI help."""
+        from codex_vault_pipeline.cli import main
+        import sys
+        from io import StringIO
+
+        old_stdout = sys.stdout
+        sys.stdout = StringIO()
+        try:
+            with pytest.raises(SystemExit) as exc_info:
+                main(["v2", "packs", "--help"])
+            assert exc_info.value.code == 0
+        finally:
+            sys.stdout = old_stdout
+
+    def test_v2_packs_stats_no_db(self, tmp_path, monkeypatch):
+        """Test v2 packs stats with no DB."""
+        from codex_vault_pipeline.cli import main
+
+        monkeypatch.setenv("CODEX_VAULT_ROOT", str(tmp_path))
+        result = main(["v2", "packs", "stats"])
+        assert result == 1  # error because no DB
+
+    def test_v2_packs_search_no_query(self, tmp_path, monkeypatch):
+        """Test v2 packs search without query."""
+        from codex_vault_pipeline.cli import main
+
+        monkeypatch.setenv("CODEX_VAULT_ROOT", str(tmp_path))
+        result = main(["v2", "packs", "search"])
+        assert result == 1  # error because no query
