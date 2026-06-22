@@ -1,0 +1,55 @@
+# Batch: deep-research and OSINT ingest
+#
+# Configuration example only — do not run.
+# Lists 9 repositories already validated in Codex Vault.
+
+run_id: phase-6-ingest-deep-research-osint
+metadata:
+  description: Deep-research and OSINT batch already validated in Codex Vault.
+  status: example-only
+sources:
+  - source_id: github:langchain-ai/open_deep_research
+    repo_url: https://github.com/langchain-ai/open_deep_research
+    metadata:
+      primary_domain: deep-research
+      artifact_role: agent-platform
+  - source_id: github:langchain-ai/deep_research_from_scratch
+    repo_url: https://github.com/langchain-ai/deep_research_from_scratch
+    metadata:
+      primary_domain: deep-research
+      artifact_role: reference
+  - source_id: github:Alibaba-NLP/DeepResearch
+    repo_url: https://github.com/Alibaba-NLP/DeepResearch
+    metadata:
+      primary_domain: deep-research
+      artifact_role: agent-platform
+  - source_id: github:RUCAIBox/ManuSearch
+    repo_url: https://github.com/RUCAIBox/ManuSearch
+    metadata:
+      primary_domain: deep-research
+      artifact_role: reference
+  - source_id: github:RUCAIBox/SimpleDeepSearcher
+    repo_url: https://github.com/RUCAIBox/SimpleDeepSearcher
+    metadata:
+      primary_domain: deep-research
+      artifact_role: reference
+  - source_id: github:bytedance/deer-flow
+    repo_url: https://github.com/bytedance/deer-flow
+    metadata:
+      primary_domain: coding-agents
+      artifact_role: agent-platform
+  - source_id: github:jivoi/awesome-osint
+    repo_url: https://github.com/jivoi/awesome-osint
+    metadata:
+      primary_domain: osint
+      artifact_role: source-catalog
+  - source_id: github:lockfale/OSINT-Framework
+    repo_url: https://github.com/lockfale/OSINT-Framework
+    metadata:
+      primary_domain: osint
+      artifact_role: source-catalog
+  - source_id: github:gs-ai/SYNINT
+    repo_url: https://github.com/gs-ai/SYNINT
+    metadata:
+      primary_domain: osint
+      artifact_role: agent-platform
