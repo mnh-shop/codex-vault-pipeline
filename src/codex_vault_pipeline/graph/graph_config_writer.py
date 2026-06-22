@@ -10,9 +10,12 @@ outside the target path.
 from __future__ import annotations
 
 import json
+import logging
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
+
+logger = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
@@ -40,27 +43,36 @@ class GraphColorGroup:
 # ---------------------------------------------------------------------------
 
 # Mapping: display name → (tag query, hex colour)
+#
+# All queries must match tags that exist in the vault's ``wiki/_graph/``
+# cards.  Run ``grep -rhoE 'graph/[A-Za-z0-9_.:/-]+' wiki/_graph/ | sort -u``
+# to discover live tags when updating.
 _DEFAULT_GROUPS: Tuple[Tuple[str, str, str], ...] = (
+    # ── Domains ──────────────────────────────────────────────
     ("hermes-agent", "tag:#graph/domain/hermes-agent", "#1f4e79"),
     ("n8n", "tag:#graph/domain/n8n", "#2e7d32"),
     ("agentfield", "tag:#graph/domain/agentfield", "#6a1b9a"),
     ("deep-research", "tag:#graph/domain/deep-research", "#ef6c00"),
     ("osint", "tag:#graph/domain/osint", "#b71c1c"),
     ("coding-agents", "tag:#graph/domain/coding-agents", "#455a64"),
-    ("memory-systems", "tag:#graph/domain/memory-systems", "#00838f"),
+    ("training-systems", "tag:#graph/domain/training-systems", "#00838f"),
+    # ── Node types ────────────────────────────────────────────
     ("source", "tag:#graph/source", "#607d8b"),
     ("hub", "tag:#graph/hub", "#f9a825"),
     ("source-catalog", "tag:#graph/artifact-role/source-catalog", "#00acc1"),
-    ("canonical", "tag:#graph/knowledge-status/canonical", "#ffd54f"),
-    ("candidate", "tag:#graph/knowledge-status/candidate", "#9e9e9e"),
+    # ── Highlight authoritative sources ──────────────────────
+    ("canonical-upstream", "tag:#graph/authority-level/canonical-upstream", "#ffd54f"),
+    # ── Ecosystem metadata ────────────────────────────────────
+    ("ai-content-gen", "tag:#graph/domain/ai-content-generation", "#9e9e9e"),
 )
 
 
 def default_color_groups() -> Tuple[GraphColorGroup, ...]:
     """Return the standard set of graph colour groups.
 
-    Returns a tuple of 12 :class:`GraphColorGroup` instances covering
-    the seven vault domains plus source/hub/role/status groups.
+    Returns a tuple of :class:`GraphColorGroup` instances covering
+    the seven vault domains, source/hub/role types, authoritative
+    sources, and remaining metadata axes.
     """
     return tuple(
         GraphColorGroup(name=name, query=query, color=color)
@@ -143,16 +155,38 @@ def build_obsidian_graph_config(
 # ---------------------------------------------------------------------------
 
 
+def _read_existing_graph_config(path: Path) -> Dict[str, Any]:
+    """Read the existing ``graph.json`` from *path*, if present.
+
+    Returns an empty dict if the file does not exist or is not valid
+    JSON.  The caller uses this as a base to preserve Obsidian's UI
+    state settings so the application does not feel the need to
+    overwrite the file.
+    """
+    if not path.is_file():
+        return {}
+    try:
+        return json.loads(path.read_text())
+    except (json.JSONDecodeError, OSError) as exc:
+        logger.warning("Could not read existing graph.json: %s", exc)
+        return {}
+
+
 def write_obsidian_graph_config(path: Path, config: Dict[str, Any]) -> Path:
     """Write an Obsidian ``graph.json`` configuration to *path*.
 
-    The write is atomic: content is first written to a temporary file
-    in the same directory, then renamed to the target path.  This
+    The writer preserves any existing settings (UI state, collapse
+    toggles, forces, etc.) already present at *path* by merging the
+    new ``colorGroups`` into the current file.  This means Obsidian is
+    less likely to overwrite the file when it detects an external change.
+
+    The final write is atomic: content is first written to a temporary
+    file in the same directory, then renamed to the target path.  This
     prevents partial writes from corrupting the configuration.
 
     Args:
         path:   Target file path (e.g. ``.obsidian/graph.json``).
-        config: Configuration dict (from :func:`build_obsidian_graph_config`).
+        config: Configuration dict from :func:`build_obsidian_graph_config`.
 
     Returns:
         *path*, resolved, for convenience.
@@ -160,7 +194,15 @@ def write_obsidian_graph_config(path: Path, config: Dict[str, Any]) -> Path:
     path = path.resolve()
     path.parent.mkdir(parents=True, exist_ok=True)
 
-    serialised = json.dumps(config, indent=2, sort_keys=True) + "\n"
+    # Merge — preserve Obsidian's existing settings, overlay our groups.
+    existing = _read_existing_graph_config(path)
+    if existing:
+        existing["colorGroups"] = config.get("colorGroups", [])
+        merged = existing
+    else:
+        merged = config
+
+    serialised = json.dumps(merged, indent=2, sort_keys=True) + "\n"
     tmp = path.with_suffix(".tmp.json")
     tmp.write_text(serialised)
     tmp.replace(path)

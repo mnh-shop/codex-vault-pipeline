@@ -60,7 +60,8 @@ class TestDefaultColorGroups:
             "tag:#graph/domain/deep-research",
             "tag:#graph/domain/osint",
             "tag:#graph/domain/coding-agents",
-            "tag:#graph/domain/memory-systems",
+            "tag:#graph/domain/training-systems",
+            "tag:#graph/domain/ai-content-generation",
         }
         assert expected_domains.issubset(queries)
 
@@ -72,8 +73,8 @@ class TestDefaultColorGroups:
     def test_includes_status_and_role_queries(self):
         queries = {g.query for g in default_color_groups()}
         assert "tag:#graph/artifact-role/source-catalog" in queries
-        assert "tag:#graph/knowledge-status/canonical" in queries
-        assert "tag:#graph/knowledge-status/candidate" in queries
+        assert "tag:#graph/authority-level/canonical-upstream" in queries
+        assert "tag:#graph/domain/ai-content-generation" in queries
 
     def test_names_are_unique(self):
         names = [g.name for g in default_color_groups()]
