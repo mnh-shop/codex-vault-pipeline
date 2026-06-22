@@ -54,6 +54,7 @@ dev = [
 ]
 
 [project.scripts]
+codex-vault = "codex_vault_pipeline.cli:main"
 codex-vault-validate = "codex_vault_pipeline.cli:main"
 codex-vault-ingest = "codex_vault_pipeline.cli:main"
 codex-vault-build-indexes = "codex_vault_pipeline.cli:main"

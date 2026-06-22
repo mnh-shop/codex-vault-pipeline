@@ -300,6 +300,336 @@ def cmd_query_units(args: argparse.Namespace) -> int:
     return 0
 
 
+@subcommand("env", help="Environment diagnostics and doctor checks")
+def cmd_env(args: argparse.Namespace) -> int:
+    """Print environment info or run doctor checks."""
+    import platform
+    import shutil
+    from pathlib import Path
+
+    if args.env_action == "doctor":
+        return _env_doctor()
+    elif args.env_action == "info":
+        return _env_info()
+    else:
+        print(f"ERROR: unknown env action: {args.env_action}", file=sys.stderr)
+        return 2
+
+
+def _env_info() -> int:
+    """Print environment information."""
+    import platform
+    import shutil
+    from pathlib import Path
+
+    print("=== Environment Info ===")
+    print(f"Python:       {sys.version}")
+    print(f"Executable:   {sys.executable}")
+    print(f"Platform:     {platform.platform()}")
+    print(f"Architecture: {platform.machine()}")
+
+    # Check for uv
+    uv_path = shutil.which("uv")
+    print(f"uv:           {uv_path or 'NOT FOUND'}")
+
+    # Check for venv
+    in_venv = hasattr(sys, "real_prefix") or (
+        hasattr(sys, "base_prefix") and sys.base_prefix != sys.prefix
+    )
+    print(f"In venv:      {in_venv}")
+    if in_venv:
+        print(f"Venv path:    {sys.prefix}")
+
+    # Check CODEX_VAULT_ROOT
+    env_root = os.environ.get(ENV_VAR)
+    print(f"{ENV_VAR}: {env_root or 'NOT SET'}")
+
+    return 0
+
+
+def _env_doctor() -> int:
+    """Run environment diagnostics and report issues."""
+    import platform
+    import shutil
+    from pathlib import Path
+
+    issues = []
+    warnings = []
+
+    # Check Python version
+    py_ver = sys.version_info
+    if py_ver < (3, 9):
+        issues.append(f"Python {py_ver.major}.{py_ver.minor} is too old; need >=3.9")
+    elif py_ver < (3, 11):
+        warnings.append(f"Python {py_ver.major}.{py_ver.minor} works but 3.11+ recommended")
+
+    # Check if running in venv
+    in_venv = hasattr(sys, "real_prefix") or (
+        hasattr(sys, "base_prefix") and sys.base_prefix != sys.prefix
+    )
+    if not in_venv:
+        issues.append("Not running in a virtual environment")
+
+    # Check uv
+    uv_path = shutil.which("uv")
+    if not uv_path:
+        issues.append("uv not found in PATH")
+
+    # Check CODEX_VAULT_ROOT
+    env_root = os.environ.get(ENV_VAR)
+    if not env_root:
+        warnings.append(f"{ENV_VAR} not set (will auto-detect from CWD)")
+    elif not Path(env_root).is_dir():
+        issues.append(f"{ENV_VAR} points to nonexistent directory: {env_root}")
+
+    # Check for __main__.py
+    main_file = Path(__file__).parent / "__main__.py"
+    if not main_file.exists():
+        issues.append("__main__.py missing; python -m codex_vault_pipeline will fail")
+
+    # Check entrypoint in pyproject.toml
+    pyproject = Path(__file__).parent.parent.parent / "pyproject.toml"
+    if pyproject.is_file():
+        content = pyproject.read_text()
+        if 'codex-vault = "codex_vault_pipeline.cli:main"' not in content:
+            issues.append("codex-vault entrypoint missing from pyproject.toml")
+    else:
+        warnings.append("pyproject.toml not found (cannot verify entrypoints)")
+
+    # Report
+    print("=== Environment Doctor ===")
+    if issues:
+        print(f"\nISSUES ({len(issues)}):")
+        for i, issue in enumerate(issues, 1):
+            print(f"  {i}. {issue}")
+    if warnings:
+        print(f"\nWARNINGS ({len(warnings)}):")
+        for i, warn in enumerate(warnings, 1):
+            print(f"  {i}. {warn}")
+    if not issues and not warnings:
+        print("\nAll checks passed.")
+
+    return 1 if issues else 0
+
+
+@subcommand("paths", help="Path resolution diagnostics and doctor checks")
+def cmd_paths(args: argparse.Namespace) -> int:
+    """Print resolved paths or run doctor checks."""
+    if args.paths_action == "doctor":
+        return _paths_doctor(args)
+    elif args.paths_action == "show":
+        return _paths_show(args)
+    else:
+        print(f"ERROR: unknown paths action: {args.paths_action}", file=sys.stderr)
+        return 2
+
+
+def _paths_show(args: argparse.Namespace) -> int:
+    """Show resolved paths."""
+    try:
+        paths = require_vault_root(args)
+    except SystemExit as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        return 1
+
+    print("=== Resolved Paths ===")
+    print(f"vault_root:       {paths.vault_root}")
+    print(f"runtime_root:     {paths.runtime_root}")
+    print(f"raw_root:         {paths.raw_root}")
+    print(f"wiki_root:        {paths.wiki_root}")
+    print(f"indexes_root:     {paths.indexes_root}")
+    print(f"db_path:          {paths.db_path}")
+    print(f"quarantine_root:  {paths.quarantine_root}")
+    print(f"tmp_root:         {paths.tmp_root}")
+    return 0
+
+
+def _paths_doctor(args: argparse.Namespace) -> int:
+    """Validate that all expected paths exist and are usable."""
+    try:
+        paths = require_vault_root(args)
+    except SystemExit as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        return 1
+
+    issues = []
+    warnings = []
+
+    # Check vault root exists
+    if not paths.vault_root.exists():
+        issues.append(f"Vault root does not exist: {paths.vault_root}")
+    elif not paths.vault_root.is_dir():
+        issues.append(f"Vault root is not a directory: {paths.vault_root}")
+
+    # Check runtime root
+    if not paths.runtime_root.exists():
+        issues.append(f"Runtime root does not exist: {paths.runtime_root}")
+
+    # Check indexes root
+    if not paths.indexes_root.exists():
+        warnings.append(f"Indexes root does not exist: {paths.indexes_root}")
+
+    # Check DB
+    if not paths.db_path.exists():
+        warnings.append(f"Metadata DB does not exist: {paths.db_path}")
+
+    # Check LanceDB
+    lancedb_dir = paths.indexes_root / "codex-vault-vectors"
+    if not lancedb_dir.exists():
+        warnings.append(f"LanceDB index does not exist: {lancedb_dir}")
+
+    # Check quarantine
+    if paths.quarantine_root.exists():
+        quarantined = list(paths.quarantine_root.iterdir())
+        if quarantined:
+            warnings.append(f"Quarantine contains {len(quarantined)} items")
+
+    # Check raw is frozen (no writes expected)
+    if paths.raw_root.exists():
+        # Just verify it's readable
+        try:
+            list(paths.raw_root.iterdir())
+        except PermissionError:
+            issues.append(f"Raw root is not readable: {paths.raw_root}")
+
+    # Report
+    print("=== Paths Doctor ===")
+    print(f"Vault root: {paths.vault_root}")
+    if issues:
+        print(f"\nISSUES ({len(issues)}):")
+        for i, issue in enumerate(issues, 1):
+            print(f"  {i}. {issue}")
+    if warnings:
+        print(f"\nWARNINGS ({len(warnings)}):")
+        for i, warn in enumerate(warnings, 1):
+            print(f"  {i}. {warn}")
+    if not issues and not warnings:
+        print("\nAll path checks passed.")
+
+    return 1 if issues else 0
+
+
+@subcommand("vector", help="Vector index diagnostics and doctor checks")
+def cmd_vector(args: argparse.Namespace) -> int:
+    """Run vector diagnostics and doctor checks."""
+    if args.vector_action == "doctor":
+        return _vector_doctor(args)
+    elif args.vector_action == "info":
+        return _vector_info(args)
+    else:
+        print(f"ERROR: unknown vector action: {args.vector_action}", file=sys.stderr)
+        return 2
+
+
+def _vector_info(args: argparse.Namespace) -> int:
+    """Show vector index information."""
+    try:
+        paths = require_vault_root(args)
+    except SystemExit as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        return 1
+
+    import lancedb
+
+    lancedb_dir = paths.indexes_root / "codex-vault-vectors"
+    print("=== Vector Index Info ===")
+    print(f"LanceDB dir:  {lancedb_dir}")
+    print(f"Exists:       {lancedb_dir.exists()}")
+
+    if lancedb_dir.exists():
+        try:
+            db = lancedb.connect(str(lancedb_dir))
+            tables = db.table_names()
+            print(f"Tables:       {len(tables)}")
+            for name in tables:
+                table = db.open_table(name)
+                print(f"  - {name}: {len(table)} rows")
+        except Exception as e:
+            print(f"Error reading LanceDB: {e}")
+
+    return 0
+
+
+def _vector_doctor(args: argparse.Namespace) -> int:
+    """Run vector diagnostics and report issues."""
+    try:
+        paths = require_vault_root(args)
+    except SystemExit as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        return 1
+
+    issues = []
+    warnings = []
+
+    # Check if vector deps are installed
+    try:
+        import lancedb
+        print(f"lancedb: {lancedb.__version__}")
+    except ImportError:
+        issues.append("lancedb not installed (run: uv add lancedb)")
+        lancedb = None
+
+    try:
+        import numpy
+        print(f"numpy: {numpy.__version__}")
+    except ImportError:
+        issues.append("numpy not installed (run: uv add numpy)")
+
+    try:
+        import sentence_transformers
+        print(f"sentence_transformers: {sentence_transformers.__version__}")
+    except ImportError:
+        issues.append("sentence_transformers not installed (run: uv add sentence-transformers)")
+
+    try:
+        import torch
+        print(f"torch: {torch.__version__}")
+    except ImportError:
+        issues.append("torch not installed (run: uv add torch)")
+
+    # Check LanceDB index
+    lancedb_dir = paths.indexes_root / "codex-vault-vectors"
+    if not lancedb_dir.exists():
+        warnings.append(f"LanceDB index does not exist: {lancedb_dir}")
+    elif lancedb is not None:
+        try:
+            db = lancedb.connect(str(lancedb_dir))
+            tables = db.table_names()
+            if not tables:
+                warnings.append("LanceDB index is empty (no tables)")
+            else:
+                total_rows = 0
+                for name in tables:
+                    table = db.open_table(name)
+                    total_rows += len(table)
+                print(f"LanceDB tables: {len(tables)}, total rows: {total_rows}")
+        except Exception as e:
+            issues.append(f"Cannot read LanceDB index: {e}")
+
+    # Check embedding model cache
+    try:
+        from sentence_transformers import SentenceTransformer
+        model = SentenceTransformer("all-MiniLM-L6-v2")
+        print(f"Embedding model loaded: all-MiniLM-L6-v2")
+    except Exception as e:
+        warnings.append(f"Cannot load embedding model: {e}")
+
+    # Report
+    print("\n=== Vector Doctor ===")
+    if issues:
+        print(f"\nISSUES ({len(issues)}):")
+        for i, issue in enumerate(issues, 1):
+            print(f"  {i}. {issue}")
+    if warnings:
+        print(f"\nWARNINGS ({len(warnings)}):")
+        for i, warn in enumerate(warnings, 1):
+            print(f"  {i}. {warn}")
+    if not issues and not warnings:
+        print("\nAll vector checks passed.")
+
+    return 1 if issues else 0
+
+
 # --- main ----------------------------------------------------------------
 
 
@@ -347,6 +677,15 @@ def build_parser() -> argparse.ArgumentParser:
                             help="Filter by exact source_id, e.g. github:NousResearch/hermes-agent")
             sp.add_argument("--json", action="store_true",
                             help="Output as JSON array instead of readable format")
+        elif name == "env":
+            sp.add_argument("env_action", choices=["doctor", "info"],
+                            help="Action: doctor (diagnostics) or info (print env)")
+        elif name == "paths":
+            sp.add_argument("paths_action", choices=["doctor", "show"],
+                            help="Action: doctor (validate paths) or show (print paths)")
+        elif name == "vector":
+            sp.add_argument("vector_action", choices=["doctor", "info"],
+                            help="Action: doctor (diagnostics) or info (print vector info)")
     return ap
 
 
