@@ -630,6 +630,531 @@ def _vector_doctor(args: argparse.Namespace) -> int:
     return 1 if issues else 0
 
 
+@subcommand("v2", help="v2 repo-context lane commands")
+def cmd_v2(args: argparse.Namespace) -> int:
+    """Handle v2 repo-context lane commands."""
+    if args.v2_action == "doctor":
+        return _v2_doctor(args)
+    elif args.v2_action == "repomix":
+        if args.v2_subaction == "plan":
+            return _v2_repomix_plan(args)
+        elif args.v2_subaction == "run":
+            return _v2_repomix_run(args)
+        else:
+            print("ERROR: repomix requires subaction: plan or run", file=sys.stderr)
+            return 2
+    elif args.v2_action == "deepwiki":
+        if args.v2_subaction == "sanity":
+            return _v2_deepwiki_sanity(args)
+        else:
+            print("ERROR: deepwiki requires subaction: sanity", file=sys.stderr)
+            return 2
+    elif args.v2_action == "n8n":
+        if args.v2_subaction == "coverage":
+            return _v2_n8n_coverage(args)
+        else:
+            print("ERROR: n8n requires subaction: coverage", file=sys.stderr)
+            return 2
+    elif args.v2_action == "retrieval":
+        if args.v2_subaction == "policy":
+            return _v2_retrieval_policy(args)
+        else:
+            print("ERROR: retrieval requires subaction: policy", file=sys.stderr)
+            return 2
+    elif args.v2_action == "context":
+        if args.v2_subaction == "schema":
+            return _v2_context_schema(args)
+        else:
+            print("ERROR: context requires subaction: schema", file=sys.stderr)
+            return 2
+    else:
+        print(f"ERROR: unknown v2 action: {args.v2_action}", file=sys.stderr)
+        return 2
+
+
+def _v2_doctor(args: argparse.Namespace) -> int:
+    """Run v2 doctor diagnostics."""
+    import shutil
+    from pathlib import Path
+    
+    try:
+        paths = require_vault_root(args)
+    except SystemExit as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        return 1
+    
+    issues = []
+    warnings = []
+    
+    # Check roots
+    print("=== v2 Doctor ===")
+    print(f"Pipeline root: {Path(__file__).parent.parent.parent}")
+    print(f"Vault root: {paths.vault_root}")
+    print(f"Runtime root: {paths.runtime_root}")
+    
+    repo_pack_root = paths.runtime_root / "repo-packs"
+    v2_index_root = paths.runtime_root / "indexes" / "v2"
+    v2_report_root = paths.runtime_root / "reports" / "v2"
+    
+    print(f"Repo-pack root: {repo_pack_root}")
+    print(f"v2 index root: {v2_index_root}")
+    
+    # Check Node/npm/npx
+    node_path = shutil.which("node")
+    npm_path = shutil.which("npm")
+    npx_path = shutil.which("npx")
+    
+    print(f"\nNode: {node_path or 'NOT FOUND'}")
+    print(f"npm: {npm_path or 'NOT FOUND'}")
+    print(f"npx: {npx_path or 'NOT FOUND'}")
+    
+    if not npx_path:
+        warnings.append("npx not found - Repomix will not be available")
+    
+    # Check Repomix availability
+    repomix_available = False
+    if npx_path:
+        try:
+            import subprocess
+            proc = subprocess.run(
+                [npx_path, "repomix", "--version"],
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+            if proc.returncode == 0:
+                repomix_available = True
+                print(f"Repomix: {proc.stdout.strip()}")
+            else:
+                print("Repomix: not available")
+        except Exception:
+            print("Repomix: not available")
+    else:
+        print("Repomix: npx not available")
+    
+    # Check optional adapters
+    print("\nOptional adapters:")
+    
+    try:
+        import cocoindex
+        print(f"  cocoindex: {cocoindex.__version__}")
+    except ImportError:
+        print("  cocoindex: not installed")
+    
+    try:
+        import llama_index
+        print(f"  llama_index: {llama_index.__version__}")
+    except ImportError:
+        print("  llama_index: not installed")
+    
+    try:
+        import haystack
+        print(f"  haystack: {haystack.__version__}")
+    except ImportError:
+        print("  haystack: not installed")
+    
+    # Check DeepWiki
+    print("\nDeepWiki: external sanity check only (manual verification)")
+    
+    # Check legacy retrieval
+    legacy_retrieval = Path(__file__).parent / "legacy" / "retrieval.py"
+    if legacy_retrieval.exists():
+        print(f"Legacy retrieval: {legacy_retrieval}")
+    else:
+        warnings.append("Legacy retrieval not found")
+    
+    # Report
+    print("\n=== v2 Doctor Summary ===")
+    if issues:
+        print(f"\nISSUES ({len(issues)}):")
+        for i, issue in enumerate(issues, 1):
+            print(f"  {i}. {issue}")
+    if warnings:
+        print(f"\nWARNINGS ({len(warnings)}):")
+        for i, warn in enumerate(warnings, 1):
+            print(f"  {i}. {warn}")
+    if not issues and not warnings:
+        print("\nAll v2 checks passed.")
+    
+    return 1 if issues else 0
+
+
+def _v2_repomix_plan(args: argparse.Namespace) -> int:
+    """Create Repomix pilot manifest."""
+    from pathlib import Path
+    from codex_vault_pipeline.v2.manifest import PilotManifest, RepoPackManifest
+    
+    try:
+        paths = require_vault_root(args)
+    except SystemExit as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        return 1
+    
+    # Create pilot manifest
+    manifest = PilotManifest()
+    
+    # Add pilot sources
+    pilot_sources = [
+        RepoPackManifest(
+            source_id="github:NousResearch/hermes-agent",
+            source_type="github",
+            repo_url="https://github.com/NousResearch/hermes-agent",
+            output_dir=str(paths.runtime_root / "repo-packs" / "repomix" / "NousResearch_hermes-agent"),
+            output_format="markdown",
+            security_check=True,
+            compression=True,
+        ),
+        RepoPackManifest(
+            source_id="github:Agent-Field/agentfield",
+            source_type="github",
+            repo_url="https://github.com/Agent-Field/agentfield",
+            output_dir=str(paths.runtime_root / "repo-packs" / "repomix" / "Agent-Field_agentfield"),
+            output_format="markdown",
+            security_check=True,
+            compression=True,
+        ),
+        RepoPackManifest(
+            source_id="github:n8n-io/n8n-docs",
+            source_type="github",
+            repo_url="https://github.com/n8n-io/n8n-docs",
+            output_dir=str(paths.runtime_root / "repo-packs" / "repomix" / "n8n-io_n8n-docs"),
+            output_format="markdown",
+            security_check=True,
+            compression=False,
+        ),
+        RepoPackManifest(
+            source_id="github:Zie619/n8n-workflows",
+            source_type="github",
+            repo_url="https://github.com/Zie619/n8n-workflows",
+            output_dir=str(paths.runtime_root / "repo-packs" / "repomix" / "Zie619_n8n-workflows"),
+            output_format="markdown",
+            security_check=True,
+            compression=False,
+        ),
+        RepoPackManifest(
+            source_id="local:codex-vault-pipeline",
+            source_type="local",
+            local_path=str(Path(__file__).parent.parent.parent),
+            output_dir=str(paths.runtime_root / "repo-packs" / "repomix" / "codex-vault-pipeline"),
+            output_format="markdown",
+            security_check=True,
+            compression=True,
+        ),
+    ]
+    
+    for source in pilot_sources:
+        manifest.add_source(source)
+    
+    # Write manifest
+    manifest_path = paths.runtime_root / "repo-packs" / "manifests" / "phase_05a_repomix_pilot.yaml"
+    manifest_path.parent.mkdir(parents=True, exist_ok=True)
+    manifest.write_yaml(manifest_path)
+    
+    print(f"Pilot manifest written to: {manifest_path}")
+    print(f"Sources: {len(manifest.sources)}")
+    
+    return 0
+
+
+def _v2_repomix_run(args: argparse.Namespace) -> int:
+    """Run Repomix pilot."""
+    from pathlib import Path
+    from codex_vault_pipeline.v2.repomix_adapter import RepomixAdapter
+    from codex_vault_pipeline.v2.manifest import PilotManifest, RepoPackManifest
+    
+    try:
+        paths = require_vault_root(args)
+    except SystemExit as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        return 1
+    
+    # Check Repomix availability
+    adapter = RepomixAdapter()
+    availability = adapter.check_availability()
+    
+    if not availability["repomix_available"]:
+        print("ERROR: Repomix not available. Run 'v2 doctor' to check.", file=sys.stderr)
+        return 1
+    
+    print(f"Repomix available: {availability['repomix_version']}")
+    
+    # Load pilot manifest
+    manifest_path = paths.runtime_root / "repo-packs" / "manifests" / "phase_05a_repomix_pilot.yaml"
+    if not manifest_path.exists():
+        print("ERROR: Pilot manifest not found. Run 'v2 repomix plan' first.", file=sys.stderr)
+        return 1
+    
+    import yaml
+    manifest_data = yaml.safe_load(manifest_path.read_text())
+    manifest = PilotManifest()
+    for source_data in manifest_data.get("sources", []):
+        source = RepoPackManifest(**source_data)
+        manifest.add_source(source)
+    
+    print(f"Pilot sources: {len(manifest.sources)}")
+    
+    # Run Repomix for each source
+    results = []
+    for source in manifest.sources:
+        print(f"\n--- Source: {source.source_id} ---")
+        output_dir = Path(source.output_dir)
+        output_dir.mkdir(parents=True, exist_ok=True)
+        
+        result = adapter.run_repomix(source, output_dir)
+        results.append(result)
+        
+        print(f"  Command: {result.command[:100]}...")
+        print(f"  Exit code: {result.exit_code}")
+        print(f"  Success: {result.success}")
+        
+        if result.output_file:
+            output_path = Path(result.output_file)
+            print(f"  Output file: {result.output_file}")
+            print(f"  Output size: {result.file_size} bytes")
+        
+        if result.token_count:
+            print(f"  Token count: {result.token_count}")
+        
+        if result.security_findings:
+            print(f"  Security findings: {len(result.security_findings)}")
+        
+        if result.error:
+            print(f"  Error: {result.error}")
+    
+    # Summary
+    successful = sum(1 for r in results if r.success)
+    failed = sum(1 for r in results if not r.success)
+    
+    print(f"\n=== Pilot Summary ===")
+    print(f"Total sources: {len(results)}")
+    print(f"Successful: {successful}")
+    print(f"Failed: {failed}")
+    
+    return 0 if failed == 0 else 1
+
+
+def _v2_deepwiki_sanity(args: argparse.Namespace) -> int:
+    """Run DeepWiki sanity checks."""
+    from codex_vault_pipeline.v2.deepwiki_sanity import DeepWikiSanityChecker
+    
+    print("=== DeepWiki Sanity Check ===")
+    print("DeepWiki is external sanity check only.")
+    print("Verify manually in browser for public repos.")
+    
+    # Example conversion
+    test_urls = [
+        "https://github.com/NousResearch/hermes-agent",
+        "https://github.com/Agent-Field/agentfield",
+        "https://github.com/n8n-io/n8n-docs",
+    ]
+    
+    print("\nDeepWiki URLs:")
+    for url in test_urls:
+        deepwiki_url = DeepWikiSanityChecker.convert_to_deepwiki_url(url)
+        print(f"  {url}")
+        print(f"    -> {deepwiki_url}")
+    
+    return 0
+
+
+def _v2_n8n_coverage(args: argparse.Namespace) -> int:
+    """Report n8n coverage."""
+    from pathlib import Path
+    from codex_vault_pipeline.v2.n8n_coverage import N8nCoverageAnalyzer
+    
+    try:
+        paths = require_vault_root(args)
+    except SystemExit as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        return 1
+    
+    analyzer = N8nCoverageAnalyzer(paths.vault_root)
+    report = analyzer.analyze()
+    
+    print("=== n8n Coverage Report ===")
+    print(f"Coverage status: {report.coverage_status}")
+    print(f"Total raw files: {report.total_raw_files}")
+    print(f"Total unit files: {report.total_unit_files}")
+    print(f"Total metadata records: {report.total_metadata_records}")
+    print(f"Total FTS rows: {report.total_fts_rows}")
+    print(f"Total vector rows: {report.total_vector_rows}")
+    print(f"Missing extraction count: {report.missing_extraction_count}")
+    
+    print("\nSources:")
+    for source in report.sources:
+        print(f"  {source.source_id}: {source.status} ({source.coverage:.1%})")
+    
+    # Write report
+    report_path = paths.runtime_root / "reports" / "v2" / "phase_05a_n8n_coverage.md"
+    report_path.parent.mkdir(parents=True, exist_ok=True)
+    
+    content = f"""# n8n Coverage Report
+
+**Date:** 2026-06-22
+**Status:** {report.coverage_status}
+
+## Summary
+
+- Total raw files: {report.total_raw_files}
+- Total unit files: {report.total_unit_files}
+- Total metadata records: {report.total_metadata_records}
+- Total FTS rows: {report.total_fts_rows}
+- Total vector rows: {report.total_vector_rows}
+- Missing extraction count: {report.missing_extraction_count}
+
+## Sources
+
+| Source | Status | Coverage |
+|--------|--------|----------|
+"""
+    
+    for source in report.sources:
+        content += f"| {source.source_id} | {source.status} | {source.coverage:.1%} |\n"
+    
+    report_path.write_text(content)
+    print(f"\nReport written to: {report_path}")
+    
+    return 0
+
+
+def _v2_retrieval_policy(args: argparse.Namespace) -> int:
+    """Write retrieval v2 policy."""
+    from pathlib import Path
+    from codex_vault_pipeline.v2.retrieval_policy import RetrievalPolicy
+    
+    try:
+        paths = require_vault_root(args)
+    except SystemExit as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        return 1
+    
+    policy = RetrievalPolicy()
+    
+    # Write policy file
+    policy_path = paths.runtime_root / "reports" / "v2" / "phase_05a_retrieval_v2_policy.md"
+    policy.write_policy_file(policy_path)
+    
+    print(f"Retrieval v2 policy written to: {policy_path}")
+    
+    return 0
+
+
+def _v2_context_schema(args: argparse.Namespace) -> int:
+    """Write context pack schema."""
+    from pathlib import Path
+    
+    try:
+        paths = require_vault_root(args)
+    except SystemExit as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        return 1
+    
+    # Write schema documentation
+    schema_path = paths.runtime_root / "reports" / "v2" / "phase_05a_context_pack_schema.md"
+    schema_path.parent.mkdir(parents=True, exist_ok=True)
+    
+    content = """# Context Pack Schema
+
+**Date:** 2026-06-22
+**Status:** Active
+
+## 1.0 Overview
+
+The context pack schema defines the structure for AI-ready context packs.
+
+## 2.0 Schema Classes
+
+### ContextPack
+
+Top-level container for context items.
+
+Fields:
+- `pack_id`: Unique identifier
+- `items`: List of ContextItem objects
+- `total_tokens`: Total token estimate
+- `query`: Optional query string
+- `metadata`: Additional metadata
+
+### ContextItem
+
+A single item in a context pack.
+
+Fields:
+- `item_id`: Unique identifier
+- `text`: Content text
+- `token_estimate`: Estimated token count
+- `provenance`: SourceProvenance object
+- `retrieval_trace`: RetrievalTrace object
+- `security_status`: Security status (clean/flagged/blocked/not-scanned)
+- `is_quarantined`: Whether item is quarantined
+- `is_generated_catalog`: Whether item is a generated catalog
+- `is_readme`: Whether item is a README
+- `recommended_use`: Recommended use case
+
+### SourceProvenance
+
+Provenance information for a context item.
+
+Fields:
+- `source_id`: Source identifier
+- `repo_url`: Repository URL
+- `commit`: Commit hash
+- `path`: File path
+- `file_hash`: File content hash
+- `artifact_role`: Artifact role type
+- `acquisition_status`: Acquisition status
+
+### RetrievalTrace
+
+Trace information for retrieval.
+
+Fields:
+- `method`: Retrieval method (metadata/fts/vector/hybrid/repomix/manual)
+- `rank`: Result rank
+- `score`: Relevance score
+- `query`: Original query
+
+## 3.0 Enums
+
+### SecurityStatus
+
+- `clean`: No security issues
+- `flagged`: Has security flags
+- `blocked`: Blocked due to security
+- `not-scanned`: Not yet scanned
+
+### ArtifactRole
+
+- `workflow`: n8n workflow
+- `skill`: Agent skill
+- `soul`: Agent soul
+- `documentation`: Documentation
+- `code`: Source code
+- `config`: Configuration
+- `deployment`: Deployment
+- `script`: Script
+- `unknown`: Unknown
+
+### RetrievalMethod
+
+- `metadata`: Metadata lookup
+- `fts`: Full-text search
+- `vector`: Vector similarity
+- `hybrid`: Hybrid search
+- `repomix`: Repomix pack
+- `manual`: Manual selection
+
+## 4.0 Validation
+
+The schema includes validation functions to ensure context packs are well-formed.
+"""
+    
+    schema_path.write_text(content)
+    print(f"Context pack schema written to: {schema_path}")
+    
+    return 0
+
+
 # --- main ----------------------------------------------------------------
 
 
@@ -686,6 +1211,13 @@ def build_parser() -> argparse.ArgumentParser:
         elif name == "vector":
             sp.add_argument("vector_action", choices=["doctor", "info"],
                             help="Action: doctor (diagnostics) or info (print vector info)")
+        elif name == "v2":
+            sp.add_argument("v2_action", choices=["doctor", "repomix", "deepwiki", "n8n", "retrieval", "context"],
+                            help="Action: doctor, repomix, deepwiki, n8n, retrieval, or context")
+            sp.add_argument("v2_subaction", nargs="?", default=None,
+                            help="Sub-action (e.g., plan, run, sanity, coverage, policy, schema)")
+            sp.add_argument("--pilot", action="store_true",
+                            help="Run in pilot mode")
     return ap
 
 
