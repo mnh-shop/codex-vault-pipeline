@@ -24,6 +24,7 @@ import json
 import os
 import sys
 import time
+import argparse
 from collections import Counter, defaultdict
 from datetime import datetime, timezone
 from pathlib import Path
@@ -32,6 +33,12 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 PIPELINE_SRC = HERE.parent / "src"
 sys.path.insert(0, str(PIPELINE_SRC))
+
+try:
+    from codex_vault_pipeline.ingest.occurrence_identity import occurrence_id as make_occ_id
+except ImportError:
+    def make_occ_id(sid, spath):
+        return hashlib.sha256(f"{sid}\0{spath}".encode("utf-8")).hexdigest()
 
 # Also add the vault root for file_policy assets
 VAULT_ROOT = Path(os.environ.get(
@@ -89,27 +96,75 @@ def resolve_raw_path(source_id: str, source_path: str) -> Path:
     return RAW_BASE / raw_name / rel
 
 
-def find_occurrence(artifact, occurrence_dir) -> dict:
-    """Find the occurrence record for this artifact."""
+def build_occurrence_index(occurrence_dir, source_id):
+    """Build a content_sha256 → occurrence dict for a source.
+
+    Occurrence files are named by occurrence_id, not content_sha256,
+    so we index by content_sha256 for artifact lookup.
+    """
+    safe = safe_source_id(source_id)
+    src_dir = occurrence_dir / safe
+    if not src_dir.exists():
+        return {}
+    index = {}
+    for f in src_dir.glob("*.json"):
+        occ = load_json(f)
+        cs = occ.get("content_sha256", "")
+        if cs:
+            index[cs] = occ
+    return index
+
+
+def find_occurrence(artifact, occurrence_index) -> dict:
+    """Find the occurrence record for this artifact using a pre-built index."""
     sha = artifact.get("content_sha256", "")
     if not sha:
-        return artifact  # fallback to artifact as occurrence-like
-    # Occurrences are stored in subdirs named by safe source_id
-    safe = safe_source_id(artifact.get("source_id", ""))
-    occ_path = occurrence_dir / safe / f"{sha}.json"
-    if occ_path.exists():
-        return load_json(occ_path)
-    # Fallback: search all occurrence dirs
-    for sub in occurrence_dir.iterdir():
-        p = sub / f"{sha}.json"
-        if p.exists():
-            return load_json(p)
-    return artifact  # fallback
+        return artifact
+    occ = occurrence_index.get(sha)
+    if occ is not None:
+        return occ
+    return artifact
+
+
+def ensure_occurrence_id(occ, source_id, source_path):
+    """Inject deterministic occurrence_id if the record lacks one."""
+    if "occurrence_id" in occ and occ["occurrence_id"]:
+        return occ
+    occ = dict(occ)
+    h = make_occ_id(source_id, source_path)
+    occ["occurrence_id"] = f"sha256:{h}"
+    return occ
+
+
+def parse_args():
+    parser = argparse.ArgumentParser(
+        description="Run deterministic unit extraction on target sources"
+    )
+    parser.add_argument(
+        "--scratch-root", type=Path, default=None,
+        help="Scratch vault root (default: VAULT/.runtime/scratch)"
+    )
+    parser.add_argument(
+        "--batch-file", type=Path, default=None,
+        help="Batch YAML file with sources (default: built-in 5 sources)"
+    )
+    return parser.parse_args()
 
 
 def main():
+    args = parse_args()
     run_id = f"6s-unit-extract-{datetime.now(timezone.utc).strftime('%Y%m%d-%H%M%S')}"
     now = datetime.now(timezone.utc).isoformat()
+
+    # Override scratch root if provided
+    global SCRATCH_RT, ARTIFACT_DIR, OCCURRENCE_DIR, RAW_BASE, UNIT_DIR
+    if args.scratch_root is not None:
+        SCRATCH_RT = args.scratch_root / ".runtime" if not args.scratch_root.name == ".runtime" else args.scratch_root
+        ARTIFACT_DIR = SCRATCH_RT / "artifacts"
+        OCCURRENCE_DIR = SCRATCH_RT / "occurrences"
+        RAW_BASE = args.scratch_root if args.scratch_root.name != ".runtime" else args.scratch_root.parent
+        RAW_BASE = RAW_BASE / "raw" if (RAW_BASE / "raw").exists() else RAW_BASE
+        UNIT_DIR = SCRATCH_RT / "units"
 
     # Phase 1: Collect all artifacts for target sources
     print(f"[{run_id}] Collecting artifacts for 5 target sources...")
@@ -147,9 +202,14 @@ def main():
         source_unit_count = 0
         source_errors = 0
 
+        # Build content_sha256 → occurrence index for this source
+        occ_index = build_occurrence_index(OCCURRENCE_DIR, sid)
+
         for art in artifacts:
-            occ = find_occurrence(art, OCCURRENCE_DIR)
+            occ = find_occurrence(art, occ_index)
             source_path = occ.get("source_path", art.get("source_path", ""))
+            # Ensure deterministic occurrence_id
+            occ = ensure_occurrence_id(occ, sid, source_path)
             sha = art.get("content_sha256", "")
 
             # Load raw content
