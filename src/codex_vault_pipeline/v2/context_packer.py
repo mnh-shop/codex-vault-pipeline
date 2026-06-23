@@ -38,6 +38,59 @@ CATALOG_QUERY_TERMS = re.compile(
     re.IGNORECASE,
 )
 
+# ---------------------------------------------------------------------------
+# Source routing rules
+# ---------------------------------------------------------------------------
+# Maps query term patterns to preferred source_ids with boost values.
+# When a query matches these rules, the preferred source gets a ranking boost.
+# This ensures domain-specific queries surface the right sources.
+
+@dataclass
+class SourceRoutingRule:
+    """A rule that boosts specific sources for matching query terms."""
+    pattern: re.Pattern
+    preferred_sources: list[str]
+    boost: float = 0.4  # ranking boost for preferred sources
+    description: str = ""
+
+SOURCE_ROUTING_RULES: list[SourceRoutingRule] = [
+    # AgentField core: boost agentfield for agent definition/protocol queries
+    SourceRoutingRule(
+        pattern=re.compile(r"(agentfield|agent.definition|protocol|reactive.agent|field.agent|agent.runtime)", re.IGNORECASE),
+        preferred_sources=["github:Agent-Field/agentfield"],
+        boost=0.5,
+        description="AgentField core repo for agent definition/protocol queries",
+    ),
+    # n8n docs: boost n8n-docs for docs/concepts queries
+    SourceRoutingRule(
+        pattern=re.compile(r"(n8n.*error.handling|n8n.*credentials|n8n.*nodes|n8n.*triggers|n8n.*expressions|n8n.*workflow.execution|error.handling.*n8n|credentials.*n8n)", re.IGNORECASE),
+        preferred_sources=["github:n8n-io/n8n-docs"],
+        boost=0.5,
+        description="n8n-docs for n8n documentation concepts",
+    ),
+    # OSINT: boost dedicated OSINT repos
+    SourceRoutingRule(
+        pattern=re.compile(r"(osint|reconnaissance|intelligence.gathering|investigation.tools|osint.framework)", re.IGNORECASE),
+        preferred_sources=["github:jivoi/awesome-osint", "github:lockfale/OSINT-Framework", "github:gs-ai/SYNINT"],
+        boost=0.4,
+        description="Dedicated OSINT repos for OSINT queries",
+    ),
+    # Memory systems: boost memory-specific repos
+    SourceRoutingRule(
+        pattern=re.compile(r"(memory.system|context.persistence|memory.managent|mnemosyne|hindsight|flowstate)", re.IGNORECASE),
+        preferred_sources=["github:AxDSan/Mnemosyne", "github:vectorize-io/hindsight", "github:amanning3390/flowstate-qmd"],
+        boost=0.5,
+        description="Memory system repos for memory/persistence queries",
+    ),
+    # Coding agents: diversify across coding-agent repos
+    SourceRoutingRule(
+        pattern=re.compile(r"(coding.agent|autonomous.code|code.generation|code.review|code.completion)", re.IGNORECASE),
+        preferred_sources=["github:arc53/DocsGPT", "github:bytedance/deer-flow", "github:builderz-labs/mission-control", "github:wondelai/skills"],
+        boost=0.3,
+        description="Diversified coding-agent repos for coding agent queries",
+    ),
+]
+
 
 # ---------------------------------------------------------------------------
 # Data model
@@ -292,6 +345,7 @@ def _compute_score(
     priority_class: str,
     query: str,
     flags: dict[str, bool],
+    source_id: str = "",
 ) -> float:
     """Compute a ranking score for a search result."""
     # Start with FTS rank (lower is better, negate for higher-is-better)
@@ -319,7 +373,18 @@ def _compute_score(
     priority_bonuses = {"high": 0.2, "normal": 0.0, "low": -0.1}
     priority_bonus = priority_bonuses.get(priority_class, 0.0)
 
-    return base_score + bonus + priority_bonus - penalty
+    # Source routing bonuses
+    source_bonus = _compute_source_routing_bonus(query, source_id)
+
+    return base_score + bonus + priority_bonus - penalty + source_bonus
+
+
+def _compute_source_routing_bonus(query: str, source_id: str) -> float:
+    """Compute bonus for preferred sources based on query routing rules."""
+    for rule in SOURCE_ROUTING_RULES:
+        if rule.pattern.search(query) and source_id in rule.preferred_sources:
+            return rule.boost
+    return 0.0
 
 
 def _select_items(
@@ -423,7 +488,8 @@ def pack_context(
 
         # Compute score
         score = _compute_score(
-            r["rank"], r["artifact_role"], r["priority_class"], query, flags
+            r["rank"], r["artifact_role"], r["priority_class"], query, flags,
+            source_id=r["source_id"],
         )
 
         item = ContextPackItem(

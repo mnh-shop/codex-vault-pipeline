@@ -966,3 +966,101 @@ This is a test skill.
         assert pack.estimated_tokens > 0
         assert len(pack.items) > 0
         assert pack.items[0].source_id == "github:test/repo"
+
+
+class TestSourceRouting:
+    """Tests for source routing rules in context packer."""
+
+    def test_source_routing_rules_exist(self):
+        """Verify source routing rules are defined."""
+        from codex_vault_pipeline.v2.context_packer import SOURCE_ROUTING_RULES
+        assert len(SOURCE_ROUTING_RULES) >= 5
+
+    def test_agentfield_routing(self):
+        """AgentField core repo should be boosted for agent definition queries."""
+        from codex_vault_pipeline.v2.context_packer import (
+            _compute_source_routing_bonus, SOURCE_ROUTING_RULES,
+        )
+        # Check that agentfield rule exists
+        agentfield_rules = [r for r in SOURCE_ROUTING_RULES if "agentfield" in str(r.preferred_sources)]
+        assert len(agentfield_rules) >= 1
+        rule = agentfield_rules[0]
+        # Should match agent definition queries
+        assert rule.pattern.search("agentfield agent definition protocol")
+        assert rule.pattern.search("reactive agent field")
+        # Should boost preferred source
+        bonus = _compute_source_routing_bonus("agentfield agent definition", "github:Agent-Field/agentfield")
+        assert bonus > 0
+
+    def test_n8n_docs_routing(self):
+        """n8n-docs should be boosted for docs concept queries."""
+        from codex_vault_pipeline.v2.context_packer import _compute_source_routing_bonus
+        bonus = _compute_source_routing_bonus("n8n error handling retry", "github:n8n-io/n8n-docs")
+        assert bonus > 0
+
+    def test_osint_routing(self):
+        """Dedicated OSINT repos should be boosted for OSINT queries."""
+        from codex_vault_pipeline.v2.context_packer import _compute_source_routing_bonus
+        bonus_jivoi = _compute_source_routing_bonus("OSINT investigation tools", "github:jivoi/awesome-osint")
+        bonus_lockfale = _compute_source_routing_bonus("OSINT framework", "github:lockfale/OSINT-Framework")
+        assert bonus_jivoi > 0
+        assert bonus_lockfale > 0
+
+    def test_memory_routing(self):
+        """Memory system repos should be boosted for memory queries."""
+        from codex_vault_pipeline.v2.context_packer import _compute_source_routing_bonus
+        bonus_mnemosyne = _compute_source_routing_bonus("memory systems persistence", "github:AxDSan/Mnemosyne")
+        bonus_hindsight = _compute_source_routing_bonus("context persistence memory", "github:vectorize-io/hindsight")
+        assert bonus_mnemosyne > 0
+        assert bonus_hindsight > 0
+
+    def test_coding_agent_routing(self):
+        """Coding agent repos should be boosted for coding agent queries."""
+        from codex_vault_pipeline.v2.context_packer import _compute_source_routing_bonus
+        bonus_docsgpt = _compute_source_routing_bonus("coding agent code generation", "github:arc53/DocsGPT")
+        bonus_deer = _compute_source_routing_bonus("autonomous code generation", "github:bytedance/deer-flow")
+        assert bonus_docsgpt > 0
+        assert bonus_deer > 0
+
+    def test_no_routing_bonus_for_unrelated_query(self):
+        """Unrelated queries should not get routing bonus."""
+        from codex_vault_pipeline.v2.context_packer import _compute_source_routing_bonus
+        bonus = _compute_source_routing_bonus("hello world", "github:Agent-Field/agentfield")
+        assert bonus == 0.0
+
+    def test_no_routing_bonus_for_wrong_source(self):
+        """Correct query but wrong source should not get bonus."""
+        from codex_vault_pipeline.v2.context_packer import _compute_source_routing_bonus
+        bonus = _compute_source_routing_bonus("agentfield agent definition", "github:NousResearch/hermes-agent")
+        assert bonus == 0.0
+
+    def test_compute_score_includes_source_bonus(self):
+        """_compute_score should include source routing bonus."""
+        from codex_vault_pipeline.v2.context_packer import _compute_score
+        flags = {"is_readme": False, "is_generated_catalog": False}
+        # With routing
+        score_with = _compute_score(
+            rank=-10, artifact_role="code", priority_class="normal",
+            query="agentfield agent definition", flags=flags,
+            source_id="github:Agent-Field/agentfield",
+        )
+        # Without routing (wrong source)
+        score_without = _compute_score(
+            rank=-10, artifact_role="code", priority_class="normal",
+            query="agentfield agent definition", flags=flags,
+            source_id="github:NousResearch/hermes-agent",
+        )
+        assert score_with > score_without
+
+    def test_hermes_specific_queries_not_degraded(self):
+        """Hermes-specific queries should still rank hermes-agent highly."""
+        from codex_vault_pipeline.v2.context_packer import _compute_score
+        flags = {"is_readme": False, "is_generated_catalog": False}
+        # Hermes query with hermes source should get normal score (no penalty)
+        score = _compute_score(
+            rank=-5, artifact_role="skill", priority_class="high",
+            query="hermes agent soul personality", flags=flags,
+            source_id="github:NousResearch/hermes-agent",
+        )
+        # Should be high score due to skill role + high priority
+        assert score > 0.5

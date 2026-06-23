@@ -21,6 +21,8 @@ class N8nSource:
     total_expected: int
     authority_level: str  # canonical-upstream, community
     source_type: str  # official docs, workflow collection, etc.
+    excluded: bool = False  # True if excluded from v2 source set
+    exclusion_reason: str = ""  # reason for exclusion
     
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary."""
@@ -34,6 +36,8 @@ class N8nSource:
             "total_expected": self.total_expected,
             "authority_level": self.authority_level,
             "source_type": self.source_type,
+            "excluded": self.excluded,
+            "exclusion_reason": self.exclusion_reason,
         }
 
 
@@ -111,6 +115,8 @@ class N8nCoverageAnalyzer:
                 total_expected=15744,
                 authority_level="community",
                 source_type="workflow catalog",
+                excluded=True,
+                exclusion_reason="oversized_repository",
             ),
             N8nSource(
                 source_id="github:wassupjay/n8n-free-templates",
