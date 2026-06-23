@@ -652,8 +652,10 @@ def cmd_v2(args: argparse.Namespace) -> int:
     elif args.v2_action == "n8n":
         if args.v2_subaction == "coverage":
             return _v2_n8n_coverage(args)
+        elif args.v2_subaction == "catalog":
+            return _v2_n8n_catalog(args)
         else:
-            print("ERROR: n8n requires subaction: coverage", file=sys.stderr)
+            print("ERROR: n8n requires subaction: coverage or catalog", file=sys.stderr)
             return 2
     elif args.v2_action == "retrieval":
         if args.v2_subaction == "policy":
@@ -1036,6 +1038,64 @@ def _v2_n8n_coverage(args: argparse.Namespace) -> int:
     report_path.write_text(content)
     print(f"\nReport written to: {report_path}")
     
+    return 0
+
+
+def _v2_n8n_catalog(args: argparse.Namespace) -> int:
+    """Build n8n workflow catalog from raw JSON corpora."""
+    from pathlib import Path
+    from codex_vault_pipeline.v2.n8n_workflow_catalog import N8nWorkflowCatalogScanner
+
+    try:
+        paths = require_vault_root(args)
+    except SystemExit as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        return 1
+
+    output_dir = None
+    if hasattr(args, "output") and args.output:
+        output_dir = Path(args.output)
+
+    scanner = N8nWorkflowCatalogScanner(paths.vault_root, output_dir)
+    summary = scanner.scan()
+    result_paths = scanner.write_all()
+
+    # Print summary
+    print(f"\n=== n8n Workflow Catalog ===")
+    print(f"Files scanned:       {summary.total_files_scanned}")
+    print(f"Workflows:           {summary.total_workflows}")
+    print(f"Metadata files:      {summary.total_metadata}")
+    print(f"Invalid:             {summary.total_invalid}")
+    print(f"Unknown:             {summary.total_unknown}")
+    print(f"Duplicate hashes:    {summary.total_duplicate_hashes}")
+    print(f"With credentials:    {summary.workflows_with_credentials}")
+    print(f"Credential refs:     {summary.workflows_with_credential_references}")
+    print(f"Secret values:       {summary.workflows_with_secret_values}")
+    print(f"Security clean:      {summary.workflows_security_clean}")
+    print(f"Credential refs only:{summary.workflows_credential_refs_only}")
+    print(f"Potential leak:      {summary.workflows_potential_secret_leak}")
+    print(f"With AI components:  {summary.workflows_with_ai}")
+
+    print(f"\nPer-source breakdown:")
+    for src, stats in summary.per_source.items():
+        print(f"  {src}: {stats}")
+
+    sorted_nt = sorted(
+        summary.node_type_frequency.items(), key=lambda x: -x[1]
+    )[:10]
+    print(f"\nTop 10 node types:")
+    for nt, cnt in sorted_nt:
+        print(f"  {nt}: {cnt}")
+
+    print(f"\nOutput files:")
+    for name, p in result_paths.items():
+        print(f"  {name}: {p}")
+
+    if scanner.validation.errors:
+        print(f"\nValidation errors: {len(scanner.validation.errors)}")
+        for err in scanner.validation.errors[:10]:
+            print(f"  {err['path']}: {err['error']}")
+
     return 0
 
 
@@ -1482,7 +1542,7 @@ def build_parser() -> argparse.ArgumentParser:
             sp.add_argument("v2_action", choices=["doctor", "repomix", "deepwiki", "n8n", "retrieval", "context", "packs"],
                             help="Action: doctor, repomix, deepwiki, n8n, retrieval, context, or packs")
             sp.add_argument("v2_subaction", nargs="?", default=None,
-                            help="Sub-action (e.g., plan, run, sanity, coverage, policy, schema, pack, index, stats, search)")
+                            help="Sub-action (e.g., plan, run, sanity, coverage, catalog, policy, schema, pack, index, stats, search)")
             sp.add_argument("--pilot", action="store_true",
                             help="Run in pilot mode")
             sp.add_argument("--query", default=None,
