@@ -681,6 +681,12 @@ def cmd_v2(args: argparse.Namespace) -> int:
         else:
             print("ERROR: packs requires subaction: index, stats, or search", file=sys.stderr)
             return 2
+    elif args.v2_action == "graph":
+        if args.v2_subaction == "build":
+            return _v2_graph_build(args)
+        else:
+            print("ERROR: graph requires subaction: build", file=sys.stderr)
+            return 2
     else:
         print(f"ERROR: unknown v2 action: {args.v2_action}", file=sys.stderr)
         return 2
@@ -1482,6 +1488,41 @@ def _v2_packs_search(args: argparse.Namespace) -> int:
     return 0
 
 
+def _v2_graph_build(args: argparse.Namespace) -> int:
+    """Build graph from existing vault records."""
+    from codex_vault_pipeline.v2.graph_builder import build_graph, write_graph_outputs
+
+    try:
+        paths = require_vault_root(args)
+    except SystemExit as exc:
+        print(f"ERROR: {exc}", file=sys.stderr)
+        return 1
+
+    if is_dry_run(args):
+        print(f"[dry-run] would build graph from: {paths.vault_root}")
+        print(f"[dry-run] output to: {paths.runtime_root / 'graph'}")
+        return 0
+
+    # Build graph
+    nodes, edges = build_graph(paths.vault_root, include_runtime_summaries=True)
+
+    # Write outputs
+    output_dir = paths.runtime_root / "graph"
+    summary = write_graph_outputs(nodes, edges, output_dir)
+
+    print("=== Graph Build Complete ===")
+    print(f"Total nodes: {summary['total_nodes']}")
+    print(f"Total edges: {summary['total_edges']}")
+    print(f"\nNodes by type:")
+    for t, cnt in summary.get("nodes_by_type", {}).items():
+        print(f"  {t}: {cnt}")
+    print(f"\nEdges by type:")
+    for t, cnt in summary.get("edges_by_type", {}).items():
+        print(f"  {t}: {cnt}")
+
+    return 0
+
+
 # --- main ----------------------------------------------------------------
 
 
@@ -1539,8 +1580,8 @@ def build_parser() -> argparse.ArgumentParser:
             sp.add_argument("vector_action", choices=["doctor", "info"],
                             help="Action: doctor (diagnostics) or info (print vector info)")
         elif name == "v2":
-            sp.add_argument("v2_action", choices=["doctor", "repomix", "deepwiki", "n8n", "retrieval", "context", "packs"],
-                            help="Action: doctor, repomix, deepwiki, n8n, retrieval, context, or packs")
+            sp.add_argument("v2_action", choices=["doctor", "repomix", "deepwiki", "n8n", "retrieval", "context", "packs", "graph"],
+                            help="Action: doctor, repomix, deepwiki, n8n, retrieval, context, packs, or graph")
             sp.add_argument("v2_subaction", nargs="?", default=None,
                             help="Sub-action (e.g., plan, run, sanity, coverage, catalog, policy, schema, pack, index, stats, search)")
             sp.add_argument("--pilot", action="store_true",

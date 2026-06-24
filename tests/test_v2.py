@@ -1064,3 +1064,82 @@ class TestSourceRouting:
         )
         # Should be high score due to skill role + high priority
         assert score > 0.5
+
+
+class TestGraphCLI:
+    """Tests for v2 graph CLI commands."""
+
+    def test_v2_graph_help(self):
+        """Test v2 graph CLI help."""
+        from codex_vault_pipeline.cli import main
+        import sys
+        from io import StringIO
+
+        old_stdout = sys.stdout
+        sys.stdout = StringIO()
+        try:
+            with pytest.raises(SystemExit) as exc_info:
+                main(["v2", "graph", "--help"])
+            assert exc_info.value.code == 0
+        finally:
+            sys.stdout = old_stdout
+
+    def test_v2_graph_build_no_subaction(self, tmp_path, monkeypatch):
+        """Test v2 graph build without subaction."""
+        from codex_vault_pipeline.cli import main
+
+        monkeypatch.setenv("CODEX_VAULT_ROOT", str(tmp_path))
+        result = main(["v2", "graph"])
+        assert result == 2  # error because no subaction
+
+    def test_v2_graph_build_dry_run(self, tmp_path, monkeypatch):
+        """Test v2 graph build dry run."""
+        from codex_vault_pipeline.cli import main
+
+        monkeypatch.setenv("CODEX_VAULT_ROOT", str(tmp_path))
+        result = main(["v2", "graph", "build", "--dry-run"])
+        assert result == 0  # dry run succeeds
+
+    def test_v2_graph_build_creates_outputs(self, tmp_path, monkeypatch):
+        """Test v2 graph build creates output files."""
+        from codex_vault_pipeline.cli import main
+
+        # Create minimal vault structure
+        domains_dir = tmp_path / "20-domains" / "test-domain"
+        domains_dir.mkdir(parents=True)
+        (domains_dir / "test-domain.md").write_text("""---
+title: Test Domain
+---
+# Test Domain
+""")
+
+        monkeypatch.setenv("CODEX_VAULT_ROOT", str(tmp_path))
+        result = main(["v2", "graph", "build"])
+        assert result == 0
+
+        # Check outputs exist
+        output_dir = tmp_path / ".runtime" / "graph"
+        assert (output_dir / "nodes.jsonl").exists()
+        assert (output_dir / "edges.jsonl").exists()
+        assert (output_dir / "graph-summary.json").exists()
+        assert (output_dir / "validation-report.json").exists()
+
+    def test_v2_graph_build_does_not_scan_raw(self, tmp_path, monkeypatch):
+        """Test v2 graph build does not scan raw/ directory."""
+        from codex_vault_pipeline.cli import main
+
+        # Create raw directory with files (should be ignored)
+        raw_dir = tmp_path / "raw" / "test-source"
+        raw_dir.mkdir(parents=True)
+        (raw_dir / "test.md").write_text("# Test")
+
+        monkeypatch.setenv("CODEX_VAULT_ROOT", str(tmp_path))
+        result = main(["v2", "graph", "build"])
+        assert result == 0
+
+        # Check no nodes from raw/
+        output_dir = tmp_path / ".runtime" / "graph"
+        nodes_path = output_dir / "nodes.jsonl"
+        if nodes_path.exists():
+            content = nodes_path.read_text()
+            assert "raw/" not in content
