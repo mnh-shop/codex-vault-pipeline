@@ -231,7 +231,7 @@ class TestValidation:
         assert any("Invalid node_type" in e for e in errors)
     
     def test_validate_graph_node_evidence_bearing_requires_provenance(self):
-        """Test evidence-bearing node requires provenance."""
+        """Test evidence-bearing node requires provenance or path."""
         data = {
             "node_id": "test-node",
             "node_type": "skill",
@@ -239,7 +239,7 @@ class TestValidation:
         }
         errors = validate_graph_node(data)
         assert len(errors) > 0
-        assert any("requires source_id or artifact_id" in e for e in errors)
+        assert any("requires source_id, artifact_id, or path" in e for e in errors)
     
     def test_validate_graph_edge_valid(self):
         """Test valid edge passes validation."""

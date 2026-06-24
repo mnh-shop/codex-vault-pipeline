@@ -261,13 +261,14 @@ def validate_graph_node(data: Dict[str, Any]) -> List[str]:
     if "label" not in data:
         errors.append("Missing required field: label")
     
-    # Evidence-bearing nodes require provenance
+    # Evidence-bearing nodes require provenance OR path
+    # Source-layer notes ARE the source, so path is sufficient
     if data.get("node_type") in [t.value for t in [
         NodeType.SOURCE, NodeType.ARTIFACT, NodeType.UNIT,
         NodeType.OPERATIONAL_ASSET, NodeType.SKILL, NodeType.WORKFLOW,
     ]]:
-        if not data.get("source_id") and not data.get("artifact_id"):
-            errors.append("Evidence-bearing node requires source_id or artifact_id")
+        if not data.get("source_id") and not data.get("artifact_id") and not data.get("path"):
+            errors.append("Evidence-bearing node requires source_id, artifact_id, or path")
     
     return errors
 
